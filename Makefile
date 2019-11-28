@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 BUILD_DIR = build
-SERVICES = users things http ws coap lora influxdb-writer influxdb-reader mongodb-writer \
-	mongodb-reader cassandra-writer cassandra-reader postgres-writer postgres-reader exporter cli bootstrap opcua
+SERVICES = exporter 
 DOCKERS = $(addprefix docker_,$(SERVICES))
 DOCKERS_DEV = $(addprefix docker_dev_,$(SERVICES))
 CGO_ENABLED ?= 0
@@ -37,31 +36,11 @@ endef
 
 all: $(SERVICES) mqtt
 
-.PHONY: all $(SERVICES) dockers dockers_dev latest release mqtt
+.PHONY: all $(SERVICES) dockers dockers_dev latest release
 
 clean:
 	rm -rf ${BUILD_DIR}
-	rm -rf mqtt/aedes/node_modules
-
-cleandocker:
-	# Stop all containers (if running)
-	docker-compose -f docker/docker-compose.yml stop
-	# Remove mainflux containers
-	docker ps -f name=mainflux -aq | xargs -r docker rm
-
-	# Remove exited containers
-	docker ps -f name=mainflux -f status=dead -f status=exited -aq | xargs -r docker rm -v
-
-	# Remove unused images
-	docker images "mainflux\/*" -f dangling=true -q | xargs -r docker rmi
-
-	# Remove old mainflux images
-	docker images -q mainflux\/* | xargs -r docker rmi
-
-ifdef pv
-	# Remove unused volumes
-	docker volume ls -f name=mainflux -f dangling=true -q | xargs -r docker volume rm
-endif
+	
 
 install:
 	cp ${BUILD_DIR}/* $(GOBIN)
@@ -81,29 +60,15 @@ $(DOCKERS):
 $(DOCKERS_DEV):
 	$(call make_docker_dev,$(@))
 
-docker_mqtt:
-	# MQTT Docker build must be done from root dir because it copies .proto files
-ifeq ($(GOARCH), arm)
-	docker build --tag=mainflux/mqtt -f mqtt/aedes/Dockerfile.arm .
-else
-	docker build --tag=mainflux/mqtt -f mqtt/aedes/Dockerfile .
-endif
-
-docker_mqtt_verne:
-	docker build --tag=mainflux/mqtt-verne -f mqtt/verne/Dockerfile .
-
-dockers: $(DOCKERS) docker_mqtt
+dockers: $(DOCKERS)
 
 dockers_dev: $(DOCKERS_DEV)
 
-mqtt:
-	cd mqtt/aedes && npm install
 
 define docker_push
 	for svc in $(SERVICES); do \
 		docker push mainflux/$$svc:$(1); \
 	done
-	docker push mainflux/mqtt:$(1)
 endef
 
 changelog:
@@ -119,23 +84,10 @@ release:
 	for svc in $(SERVICES); do \
 		docker tag mainflux/$$svc mainflux/$$svc:$(version); \
 	done
-	docker tag mainflux/ui mainflux/ui:$(version)
-	docker tag mainflux/mqtt mainflux/mqtt:$(version)
 	$(call docker_push,$(version))
 
 rundev:
 	cd scripts && ./run.sh
 
 run:
-	docker-compose -f docker/docker-compose.yml -f docker/aedes.yml up
-
-runlora:
-	docker-compose \
-		-f docker/docker-compose.yml \
-		-f docker/aedes.yml up \
-		-f docker/addons/influxdb-writer/docker-compose.yml \
-		-f docker/addons/lora-adapter/docker-compose.yml up \
-
-# Run all Mainflux core services except distributed tracing system - Jaeger. Recommended on gateways:
-rungw:
-	MF_JAEGER_URL= docker-compose -f docker/docker-compose.yml -f docker/aedes.yml up --scale jaeger=0
+	docker-compose -f docker/docker-compose.yml 
