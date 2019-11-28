@@ -23,7 +23,7 @@ import (
 	writer "github.com/mainflux/export/writers/export/writer"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/mainflux/mainflux"
 	log "github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/mainflux/transformers"
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 )
 
 var _ writers.Writer = (*exporter)(nil)
