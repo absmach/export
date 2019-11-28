@@ -9,8 +9,10 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/go-zoo/bone v1.3.0
 	github.com/gogo/protobuf v1.3.1
+	github.com/influxdata/influxdb v1.6.4
 	github.com/mainflux/mainflux v0.0.0-20191127142934-263108cc85f5
 	github.com/nats-io/nats.go v1.9.1
 	github.com/prometheus/client_golang v1.2.1
 	github.com/spf13/viper v1.5.0
+	gopkg.in/ory-am/dockertest.v3 v3.3.2
 )
