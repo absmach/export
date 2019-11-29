@@ -124,6 +124,18 @@ func main() {
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
 }
 
+func viperSave(configFile string, cfg map[string]string) error {
+
+	for key, val := range cfg {
+		viper.Set(key, val)
+	}
+
+	viper.SetConfigFile(configFile)
+	viper.WriteConfig()
+
+	return nil
+}
+
 func viperRead(configFile string) (export.Config, error) {
 	viper.SetConfigFile(configFile)
 	cfg := export.Config{}
@@ -188,13 +200,28 @@ func loadConfigs() (export.Config, error) {
 			MqttSkipTLSVer: mqttSkipTLSVer,
 		}
 		CA := mainflux.Env(envMqttCA, defMqttCA)
-		ClientCert := mainflux.Env(envMqttCert, defMqttCert)
-		PrivKey := mainflux.Env(envMqttPrivKey, defMqttPrivKey)
+		clientCert := mainflux.Env(envMqttCert, defMqttCert)
+		privKey := mainflux.Env(envMqttPrivKey, defMqttPrivKey)
 
-		err = loadCertificate(&cfg, CA, ClientCert, PrivKey)
+		err = loadCertificate(&cfg, CA, clientCert, privKey)
 		if err != nil {
 			return cfg, err
 		}
+
+		viperCfg := map[string]string{
+			keyMqttMTls:       strconv.FormatBool(mqttMTLS),
+			keyMqttSkipTLS:    strconv.FormatBool(mqttSkipTLSVer),
+			keyMqttUrl:        cfg.MqttHost,
+			keyMqttClientCert: clientCert,
+			keyMqttPrivKey:    privKey,
+			keyMqttCA:         CA,
+			keyMqttPassword:   cfg.MqttPassword,
+			keyMqttUsername:   cfg.MqttUsername,
+			keyMqttChannel:    cfg.MqttChannel,
+			keyChanCfg:        chanCfgPath,
+		}
+
+		viperSave(confPath, viperCfg)
 		log.Println(fmt.Sprintf("Configuration loaded from enviroment"))
 		return cfg, nil
 	}
