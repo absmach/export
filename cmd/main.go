@@ -40,7 +40,7 @@ const (
 	defMqttSkipTLSVer = "true"
 	defMqttMTLS       = "false"
 	defMqttCA         = "ca.crt"
-	defMqttQoS        = 0
+	defMqttQoS        = "0"
 	defMqttRetain     = false
 	defMqttCert       = "thing.cert"
 	defMqttPrivKey    = "thing.key"
@@ -59,17 +59,22 @@ const (
 	envMqttMTLS       = "MF_EXPORT_MQTT_MTLS"
 	envMqttCA         = "MF_EXPORT_MQTT_CA"
 	envMqttQoS        = "MF_EXPORT_MQTT_QOS"
-	envRetain         = "MF_EXPORT_RETAINS"
+	envMqttRetain     = "MF_EXPORT_RETAINS"
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
 	envConfPath       = "MF_EXPORT_CONF_PATH"
 	envChanCfgPath    = "MF_EXPORT_CHANNELS_CONFIG"
 
+	keyNatsURL        = "exp.nats"
+	keyExportPort     = "exp.port"
+	keyExportLogLevel = "exp.log_level"
 	keyMqttMTls       = "mqtt.mtls"
 	keyMqttSkipTLS    = "mqtt.skip_tls_ver"
 	keyMqttUrl        = "mqtt.url"
 	keyMqttClientCert = "mqtt.cert"
 	keyMqttPrivKey    = "mqtt.priv_key"
+	keyMqttQOS        = "mqtt.qos"
+	keyMqttRetain     = "mqtt.retain"
 	keyMqttCA         = "mqtt.ca"
 	keyMqttPassword   = "mqtt.password"
 	keyMqttUsername   = "mqtt.username"
@@ -166,6 +171,22 @@ func viperRead(configFile string) (export.Config, error) {
 	PrivKey := viperCfg[keyMqttPrivKey]
 
 	err := loadCertificate(&cfg, CA, ClientCert, PrivKey)
+	mtls, err := strconv.ParseBool(viperCfg[keyMqttMTls])
+	if err != nil {
+		mtls = false
+	}
+	skipTLS, err := strconv.ParseBool(viperCfg[keyMqttSkipTLS])
+	if err != nil {
+		skipTLS = true
+	}
+	cfg = export.Config{
+		MqttHost:       viperCfg[keyMqttUrl],
+		MqttPassword:   viperCfg[keyMqttChannel],
+		MqttUsername:   viperCfg[keyMqttUsername],
+		MqttMTLS:       mtls,
+		MqttSkipTLSVer: skipTLS,
+		MqttChannel:    viperCfg[keyMqttChannel],
+	}
 	if err != nil {
 		return cfg, err
 	}
@@ -180,21 +201,35 @@ func loadConfigs() (export.Config, error) {
 	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
-			return export.Config{}, err
+			mqttSkipTLSVer = false
 		}
 		mqttMTLS, err := strconv.ParseBool(mainflux.Env(envMqttMTLS, defMqttMTLS))
 		if err != nil {
-			return export.Config{}, err
+			mqttMTLS = false
 		}
 
+		mqttRetain, err := strconv.ParseBool(mainflux.Env(envMqttMTLS, defMqttMTLS))
+		if err != nil {
+			mqttRetain = false
+		}
+
+		q, err := strconv.ParseInt(mainflux.Env(envMqttQoS, defMqttQoS), 10, 64)
+		if err != nil {
+			q = 0
+		}
+		QoS := int(q)
+
 		cfg = export.Config{
-			NatsURL:        mainflux.Env(envNatsURL, defNatsURL),
-			LogLevel:       mainflux.Env(envLogLevel, defLogLevel),
-			Port:           mainflux.Env(envPort, defPort),
-			MqttHost:       mainflux.Env(envMqttHost, defMqttHost),
-			MqttChannel:    mainflux.Env(envMqttChannel, defMqttChannel),
-			MqttPassword:   mainflux.Env(envMqttPassword, defMqttPassword),
-			MqttUsername:   mainflux.Env(envMqttUsername, defMqttUsername),
+			NatsURL:      mainflux.Env(envNatsURL, defNatsURL),
+			LogLevel:     mainflux.Env(envLogLevel, defLogLevel),
+			Port:         mainflux.Env(envPort, defPort),
+			MqttHost:     mainflux.Env(envMqttHost, defMqttHost),
+			MqttChannel:  mainflux.Env(envMqttChannel, defMqttChannel),
+			MqttPassword: mainflux.Env(envMqttPassword, defMqttPassword),
+			MqttUsername: mainflux.Env(envMqttUsername, defMqttUsername),
+			MqttRetain:   mqttRetain,
+			MqttQoS:      QoS,
+
 			Channels:       loadChansConfig(chanCfgPath),
 			MqttMTLS:       mqttMTLS,
 			MqttSkipTLSVer: mqttSkipTLSVer,
@@ -209,6 +244,9 @@ func loadConfigs() (export.Config, error) {
 		}
 
 		viperCfg := map[string]string{
+			keyNatsURL:        cfg.NatsURL,
+			keyExportLogLevel: cfg.LogLevel,
+			keyExportPort:     cfg.Port,
 			keyMqttMTls:       strconv.FormatBool(mqttMTLS),
 			keyMqttSkipTLS:    strconv.FormatBool(mqttSkipTLSVer),
 			keyMqttUrl:        cfg.MqttHost,
@@ -219,10 +257,11 @@ func loadConfigs() (export.Config, error) {
 			keyMqttUsername:   cfg.MqttUsername,
 			keyMqttChannel:    cfg.MqttChannel,
 			keyChanCfg:        chanCfgPath,
+			keyMqttRetain:     strconv.FormatBool(cfg.MqttRetain),
 		}
 
 		viperSave(confPath, viperCfg)
-		log.Println(fmt.Sprintf("Configuration loaded from enviroment"))
+		log.Println(fmt.Sprintf("Configuration loaded from environment"))
 		return cfg, nil
 	}
 	log.Println(fmt.Sprintf("Configuration loaded from file %s", confPath))
