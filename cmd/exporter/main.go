@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	svcName           = "exporter"
+	svcName           = "export"
 	defNatsURL        = nats.DefaultURL
 	defLogLevel       = "debug"
 	defPort           = "8170"
@@ -48,22 +48,22 @@ const (
 	defChanCfgPath    = "/config/channels.toml"
 
 	envNatsURL  = "MF_NATS_URL"
-	envLogLevel = "MF_EXPORTER_LOG_LEVEL"
-	envPort     = "MF_EXPORTER_PORT"
+	envLogLevel = "MF_EXPORT_LOG_LEVEL"
+	envPort     = "MF_EXPORT_PORT"
 
-	envMqttHost       = "MF_EXPORTER_MQTT_HOST"
-	envMqttUsername   = "MF_EXPORTER_MQTT_USERNAME"
-	envMqttPassword   = "MF_EXPORTER_MQTT_PASSWORD"
-	envMqttChannel    = "MF_EXPORTER_MQTT_CHANNEL"
-	envMqttSkipTLSVer = "MF_EXPORTER_MQTT_SKIP_TLS"
-	envMqttMTLS       = "MF_EXPORTER_MQTT_MTLS"
-	envMqttCA         = "MF_EXPORTER_MQTT_CA"
-	envMqttQoS        = "MF_EXPORTER_MQTT_QOS"
-	envRetain         = "MF_EXPORTER_RETAINS"
-	envMqttCert       = "MF_EXPORTER_MQTT_CLIENT_CERT"
-	envMqttPrivKey    = "MF_EXPORTER_MQTT_CLIENT_PK"
-	envConfPath       = "MF_EXPORTER_CONF_PATH"
-	envChanCfgPath    = "MF_EXPORTER_CHANNELS_CONFIG"
+	envMqttHost       = "MF_EXPORT_MQTT_HOST"
+	envMqttUsername   = "MF_EXPORT_MQTT_USERNAME"
+	envMqttPassword   = "MF_EXPORT_MQTT_PASSWORD"
+	envMqttChannel    = "MF_EXPORT_MQTT_CHANNEL"
+	envMqttSkipTLSVer = "MF_EXPORT_MQTT_SKIP_TLS"
+	envMqttMTLS       = "MF_EXPORT_MQTT_MTLS"
+	envMqttCA         = "MF_EXPORT_MQTT_CA"
+	envMqttQoS        = "MF_EXPORT_MQTT_QOS"
+	envRetain         = "MF_EXPORT_RETAINS"
+	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
+	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
+	envConfPath       = "MF_EXPORT_CONF_PATH"
+	envChanCfgPath    = "MF_EXPORT_CHANNELS_CONFIG"
 
 	keyMqttMTls       = "mqtt.mtls"
 	keyMqttSkipTLS    = "mqtt.skip_tls_ver"
@@ -195,10 +195,10 @@ func loadConfigs() (export.Config, error) {
 		if err != nil {
 			return cfg, err
 		}
-
+		log.Println(fmt.Sprintf("Configuration loaded from enviroment"))
 		return cfg, nil
 	}
-
+	log.Println(fmt.Sprintf("Configuration loaded from file %s", confPath))
 	return cfg, nil
 }
 
@@ -288,7 +288,7 @@ func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
 
 func startHTTPService(port string, logger logger.Logger, errs chan error) {
 	p := fmt.Sprintf(":%s", port)
-	logger.Info(fmt.Sprintf("Exporter service started, exposed port %s", p))
+	logger.Info(fmt.Sprintf("Export service started, exposed port %s", p))
 	errs <- http.ListenAndServe(p, api.MakeHandler(svcName))
 }
 

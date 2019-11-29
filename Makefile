@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 BUILD_DIR = build
-SERVICES = exporter 
+SERVICES = export
 DOCKERS = $(addprefix docker_,$(SERVICES))
 DOCKERS_DEV = $(addprefix docker_dev_,$(SERVICES))
 CGO_ENABLED ?= 0
@@ -34,7 +34,7 @@ define make_docker_dev
 		-f docker/Dockerfile.dev ./build
 endef
 
-all: $(SERVICES) mqtt
+all: $(SERVICES) 
 
 .PHONY: all $(SERVICES) dockers dockers_dev latest release
 
@@ -48,8 +48,6 @@ install:
 test:
 	go test -v -race -count 1 -tags test $(shell go list ./... | grep -v 'vendor\|cmd')
 
-proto:
-	protoc --gofast_out=plugins=grpc:. *.proto
 
 $(SERVICES):
 	$(call compile_service,$(@))
@@ -90,4 +88,4 @@ rundev:
 	cd scripts && ./run.sh
 
 run:
-	docker-compose -f docker/docker-compose.yml 
+	docker-compose -f docker/docker-compose.yml up

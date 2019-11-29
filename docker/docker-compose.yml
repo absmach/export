@@ -1,0 +1,43 @@
+# Copyright (c) Mainflux
+# SPDX-License-Identifier: Apache-2.0
+
+# This docker-compose file contains optional InfluxDB, InfluxDB-writer and Grafana services
+# for the Mainflux platform. Since this services are optional, this file is dependent on the
+# docker-compose.yml file from <project_root>/docker/. In order to run these services,
+# core services, as well as the network from the core composition, should be already running.
+
+version: "3.7"
+
+networks:
+  docker_mainflux-base-net:
+    external: true
+
+volumes:
+  mainflux-export-volume:
+
+services:
+  mainflux-export:
+    image: mainflux/export:latest
+    container_name: mainflux-export
+    restart: on-failure
+    environment:
+      MF_NATS_URL: ${MF_NATS_URL}
+      MF_EXPORT_CONF_PATH: ${MF_EXPORT_CONF_PATH}
+      MF_EXPORT_MQTT_HOST: ${MF_EXPORT_MQTT_HOST}
+      MF_EXPORT_MQTT_USERNAME: ${MF_EXPORT_MQTT_USERNAME}
+      MF_EXPORT_MQTT_PASSWORD: ${MF_EXPORT_MQTT_PASSWORD}
+      MF_EXPORT_MQTT_CHANNEL: ${MF_EXPORT_MQTT_CHANNEL}
+      MF_EXPORT_MQTT_SKIP_TLS: ${MF_EXPORT_MQTT_SKIP_TLS}
+      MF_EXPORT_MQTT_MTLS: ${MF_EXPORT_MQTT_MTLS}
+      MF_EXPORT_MQTT_CA: ${MF_EXPORT_MQTT_CA}
+      MF_EXPORT_MQTT_CLIENT_CERT: ${MF_EXPORT_MQTT_CLIENT_CERT}
+      MF_EXPORT_MQTT_CLIENT_PK: ${MF_EXPORT_MQTT_CLIENT_PK}
+      MF_EXPORT_CHANNELS_CONFIG: ${MF_EXPORT_CHANNELS_CONFIG}
+    ports:
+      - ${MF_EXPORT_PORT}:${MF_EXPORT_PORT}
+    networks:
+      - docker_mainflux-base-net
+    volumes:
+      - ./channels.toml:/channels.toml
+      - ./config.toml:/config.toml
+
