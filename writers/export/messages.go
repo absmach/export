@@ -52,7 +52,6 @@ type Config struct {
 	MqttChannel    string
 	MqttCA         []byte
 	MqttCert       tls.Certificate
-	MqttChan       string
 	MqttQoS        int
 	Channels       map[string]bool
 }
