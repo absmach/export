@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cisco/senml"
+	"github.com/mainflux/senml"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/publish"
 	"github.com/mainflux/mainflux"

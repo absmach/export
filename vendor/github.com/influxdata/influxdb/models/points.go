@@ -18,6 +18,19 @@ import (
 	"github.com/influxdata/influxdb/pkg/escape"
 )
 
+// Values used to store the field key and measurement name as special internal
+// tags.
+const (
+	FieldKeyTagKey    = "\xff"
+	MeasurementTagKey = "\x00"
+)
+
+// Predefined byte representations of special tag keys.
+var (
+	FieldKeyTagKeyBytes    = []byte(FieldKeyTagKey)
+	MeasurementTagKeyBytes = []byte(MeasurementTagKey)
+)
+
 type escapeSet struct {
 	k   [1]byte
 	esc [2]byte
@@ -335,7 +348,6 @@ func ParsePointsWithPrecision(buf []byte, defaultTime time.Time, precision strin
 			continue
 		}
 
-		// lines which start with '#' are comments
 		start := skipWhitespace(block, 0)
 
 		// If line is all whitespace, just skip it
@@ -343,6 +355,7 @@ func ParsePointsWithPrecision(buf []byte, defaultTime time.Time, precision strin
 			continue
 		}
 
+		// lines which start with '#' are comments
 		if block[start] == '#' {
 			continue
 		}
@@ -368,7 +381,7 @@ func ParsePointsWithPrecision(buf []byte, defaultTime time.Time, precision strin
 }
 
 func parsePoint(buf []byte, defaultTime time.Time, precision string) (Point, error) {
-	// scan the first block which is measurement[,tag1=value1,tag2=value=2...]
+	// scan the first block which is measurement[,tag1=value1,tag2=value2...]
 	pos, key, err := scanKey(buf, 0)
 	if err != nil {
 		return nil, err
