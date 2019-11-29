@@ -7,18 +7,18 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/mainflux/export/writers"
+	"github.com/mainflux/export/publish"
 )
 
 type metricsMiddleware struct {
 	counter metrics.Counter
 	latency metrics.Histogram
-	repo    writers.MessageRepository
+	repo    publish.MessageRepository
 }
 
 // MetricsMiddleware returns new message repository
 // with Save method wrapped to expose metrics.
-func MetricsMiddleware(repo writers.MessageRepository, counter metrics.Counter, latency metrics.Histogram) writers.MessageRepository {
+func MetricsMiddleware(repo publish.MessageRepository, counter metrics.Counter, latency metrics.Histogram) publish.MessageRepository {
 	return &metricsMiddleware{
 		counter: counter,
 		latency: latency,

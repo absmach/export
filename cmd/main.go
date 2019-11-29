@@ -18,9 +18,9 @@ import (
 	"github.com/BurntSushi/toml"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
-	"github.com/mainflux/export/writers/api"
-	"github.com/mainflux/export/writers/export"
-	writer "github.com/mainflux/export/writers/export/writer"
+	"github.com/mainflux/export/publish"
+	"github.com/mainflux/export/publish/api"
+	"github.com/mainflux/export/publish/export"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -110,7 +110,7 @@ func main() {
 	counter, latency := makeMetrics()
 	repo = api.LoggingMiddleware(repo, logger)
 	repo = api.MetricsMiddleware(repo, counter, latency)
-	w := writer.New(nc, repo, nil, cfg.Channels, nil, logger)
+	w := publish.New(nc, repo, nil, cfg.Channels, nil, logger)
 	if err := w.Start(svcName); err != nil {
 		logger.Error(fmt.Sprintf("Failed to start exporte service: %s", err))
 		os.Exit(1)

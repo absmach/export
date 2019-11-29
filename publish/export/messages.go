@@ -10,7 +10,7 @@ import (
 
 	"github.com/cisco/senml"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/mainflux/export/writers"
+	"github.com/mainflux/export/publish"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	s "github.com/mainflux/mainflux/transformers/senml"
@@ -18,7 +18,7 @@ import (
 
 const pointName = "messages"
 
-var _ writers.MessageRepository = (*exportRepo)(nil)
+var _ publish.MessageRepository = (*exportRepo)(nil)
 
 const (
 	// SenMLJSON represents SenML in JSON format content type.
@@ -60,7 +60,7 @@ type fields map[string]interface{}
 type tags map[string]string
 
 // New returns new InfluxDB writer.
-func New(client mqtt.Client, conf Config, log logger.Logger) writers.MessageRepository {
+func New(client mqtt.Client, conf Config, log logger.Logger) publish.MessageRepository {
 	return &exportRepo{
 		client: client,
 		conf:   conf,

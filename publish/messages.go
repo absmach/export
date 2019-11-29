@@ -1,7 +1,7 @@
 // Copyright (c) Mainflux
 // SPDX-License-Identifier: Apache-2.0
 
-package writers
+package publish
 
 // MessageRepository specifies message writing API.
 type MessageRepository interface {

@@ -9,19 +9,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mainflux/export/writers"
+	"github.com/mainflux/export/publish"
 	log "github.com/mainflux/mainflux/logger"
 )
 
-var _ writers.MessageRepository = (*loggingMiddleware)(nil)
+var _ publish.MessageRepository = (*loggingMiddleware)(nil)
 
 type loggingMiddleware struct {
 	logger log.Logger
-	svc    writers.MessageRepository
+	svc    publish.MessageRepository
 }
 
 // LoggingMiddleware adds logging facilities to the adapter.
-func LoggingMiddleware(svc writers.MessageRepository, logger log.Logger) writers.MessageRepository {
+func LoggingMiddleware(svc publish.MessageRepository, logger log.Logger) publish.MessageRepository {
 	return &loggingMiddleware{logger, svc}
 }
 

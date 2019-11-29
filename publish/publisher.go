@@ -1,7 +1,7 @@
 // Copyright (c) Mainflux
 // SPDX-License-Identifier: Apache-2.0
 
-package writers
+package publish
 
 import (
 	"fmt"
@@ -10,14 +10,13 @@ import (
 	"github.com/mainflux/mainflux"
 	log "github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/mainflux/transformers"
-	"github.com/mainflux/mainflux/transformers/senml"
 	nats "github.com/nats-io/nats.go"
 )
 
-type Writer interface {
+type Publisher interface {
 	Start(string) error
 	Consume(m *nats.Msg)
-	Write(msgs ...interface{})
+	Publish(msgs ...interface{})
 }
 
 type Consumer struct {
@@ -30,7 +29,7 @@ type Consumer struct {
 }
 
 //
-func New(nc *nats.Conn, repo MessageRepository, transformer transformers.Transformer, channels map[string]bool, fConsume func(*nats.Msg), logger log.Logger) Writer {
+func New(nc *nats.Conn, repo MessageRepository, transformer transformers.Transformer, channels map[string]bool, fConsume func(*nats.Msg), logger log.Logger) Publisher {
 
 	c := Consumer{
 		Nc:          nc,
@@ -56,33 +55,20 @@ func (c *Consumer) Start(queue string) error {
 }
 
 func (c *Consumer) Consume(m *nats.Msg) {
-	var msg mainflux.Message
+	msg := mainflux.Message{}
+
 	if err := proto.Unmarshal(m.Data, &msg); err != nil {
 		c.Logger.Warn(fmt.Sprintf("Failed to unmarshal received message: %s", err))
 		return
 	}
 
-	t, err := c.Transformer.Transform(msg)
-	if err != nil {
-		c.Logger.Warn(fmt.Sprintf("Failed to tranform received message: %s", err))
-		return
-	}
-	norm, ok := t.([]senml.Message)
-	if !ok {
-		c.Logger.Warn("Invalid message format from the Transformer output.")
-		return
-	}
-	var msgs []interface{}
-	for _, v := range norm {
-		if c.channelExists(v.Channel) {
-			msgs = append(msgs, v)
-		}
-	}
+	msgs := []interface{}{}
+	msgs = append(msgs, msg)
 
-	c.Write(msgs...)
+	c.Publish(msgs...)
 }
 
-func (c *Consumer) Write(msgs ...interface{}) {
+func (c *Consumer) Publish(msgs ...interface{}) {
 	if err := c.Repo.Save(msgs...); err != nil {
 		c.Logger.Warn(fmt.Sprintf("Failed to save message: %s", err))
 		return
