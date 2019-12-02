@@ -25,7 +25,7 @@ func LoggingMiddleware(svc export.MessageRepository, logger log.Logger) export.M
 	return &loggingMiddleware{logger, svc}
 }
 
-func (lm *loggingMiddleware) Publish(msgs ...interface{}) (err error) {
+func (lm *loggingMiddleware) Publish(topic string, msgs ...interface{}) (err error) {
 	defer func(begin time.Time) {
 		message := fmt.Sprintf("Method save took %s to complete", time.Since(begin))
 		if err != nil {
@@ -35,5 +35,5 @@ func (lm *loggingMiddleware) Publish(msgs ...interface{}) (err error) {
 		lm.logger.Info(fmt.Sprintf("%s without errors.", message))
 	}(time.Now())
 
-	return lm.svc.Publish(msgs...)
+	return lm.svc.Publish(topic, msgs...)
 }

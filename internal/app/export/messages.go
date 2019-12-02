@@ -7,5 +7,5 @@ package export
 type MessageRepository interface {
 	// Save method is used to save published message. A non-nil
 	// error is returned to indicate  operation failure.
-	Publish(...interface{}) error
+	Publish(string, ...interface{}) error
 }

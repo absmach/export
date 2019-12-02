@@ -49,7 +49,7 @@ func New(client mqtt.Client, conf config.Config, log logger.Logger) export.Messa
 	}
 }
 
-func (repo *exportRepo) Publish(messages ...interface{}) error {
+func (repo *exportRepo) Publish(topic string, messages ...interface{}) error {
 	for _, m := range messages {
 		msg, ok := m.(mainflux.Message)
 		if !ok {
@@ -66,7 +66,7 @@ func (repo *exportRepo) Publish(messages ...interface{}) error {
 			return fmt.Errorf(fmt.Sprintf("Failed to decode payload message: %s", err))
 		}
 
-		pubtopic := fmt.Sprintf("/%s/%s/%s", repo.conf.MQTT.Channel, msg.GetChannel(), msg.GetPublisher(), msg.GetSubtopic())
+		pubtopic := fmt.Sprintf("/%s/%s/%s", topic, msg.GetChannel(), msg.GetPublisher(), msg.GetSubtopic())
 
 		payload, err := senml.Encode(raw, senml.JSON)
 		if err != nil {

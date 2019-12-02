@@ -38,9 +38,9 @@ type RoutesConf struct {
 	Route []Route `toml:"routes" mapstructure:"routes"`
 }
 type Config struct {
-	Server ServerConf `toml:"exp" mapstructure:"exp"`
-	Routes []Route    `toml:"routes" mapstructure:"routes"`
-	MQTT   MQTTConf   `toml:"mqtt" mapstructure:"mqtt"`
+	Server ServerConf `toml:"exp" `
+	Routes []Route    `toml:"routes" `
+	MQTT   MQTTConf   `toml:"mqtt" `
 	File   string     `toml:"-"`
 }
 

@@ -25,7 +25,6 @@ import (
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -108,7 +107,7 @@ func main() {
 	counter, latency := makeMetrics()
 	repo = api.LoggingMiddleware(repo, logger)
 	repo = api.MetricsMiddleware(repo, counter, latency)
-	svc := export.New(nc, repo, nil, nil, nil, logger)
+	svc := export.New(nc, repo, nil, *cfg, nil, logger)
 	//svc := export.New(nc, repo, nil, cfg.Channels, nil, logger)
 	if err := svc.Start(svcName); err != nil {
 		logger.Error(fmt.Sprintf("Failed to start exporte service: %s", err))
@@ -126,18 +125,6 @@ func main() {
 
 	err = <-errs
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
-}
-
-func viperSave(configFile string, cfg map[string]string) error {
-
-	for key, val := range cfg {
-		viper.Set(key, val)
-	}
-
-	viper.SetConfigFile(configFile)
-	viper.WriteConfig()
-
-	return nil
 }
 
 func loadConfigs() (*config.Config, error) {
@@ -199,7 +186,7 @@ func loadConfigs() (*config.Config, error) {
 		if err != nil {
 			return cfg, err
 		}
-
+		cfg.Save()
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
@@ -212,7 +199,6 @@ func loadConfigs() (*config.Config, error) {
 }
 
 func loadCertificate(cfg *config.Config) error {
-
 	caByte := []byte{}
 	cert := tls.Certificate{}
 	if cfg.MQTT.MTLS {
@@ -245,37 +231,9 @@ func loadCertificate(cfg *config.Config) error {
 
 		cfg.MQTT.Cert = cert
 		cfg.MQTT.CA = caByte
-
 	}
 	return nil
 }
-
-// type channels struct {
-// 	List []string `toml:"filter"`
-// }
-
-// type chanConfig struct {
-// 	Channels channels `toml:"channels"`
-// }
-
-// func loadChansConfig(chanConfigPath string) map[string]bool {
-// 	data, err := ioutil.ReadFile(chanConfigPath)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	var chanCfg chanConfig
-// 	if err := toml.Unmarshal(data, &chanCfg); err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	chans := map[string]bool{}
-// 	for _, ch := range chanCfg.Channels.List {
-// 		chans[ch] = true
-// 	}
-
-// 	return chans
-// }
 
 func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
 	counter := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
