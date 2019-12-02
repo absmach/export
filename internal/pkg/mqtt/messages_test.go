@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	influxdata "github.com/influxdata/influxdb/client/v2"
 	log "github.com/mainflux/mainflux/logger"
 )
 
@@ -20,10 +19,7 @@ var (
 	streamsSize = 250
 	selectMsgs  = "SELECT * FROM test..messages"
 	dropMsgs    = "DROP SERIES FROM messages"
-	clientCfg   = influxdata.HTTPConfig{
-		Username: "test",
-		Password: "test",
-	}
+
 	subtopic = "topic"
 )
 
