@@ -98,12 +98,12 @@ func main() {
 	}
 	defer nc.Close()
 
-	client, err := mqttConnect(svcName, cfg, logger)
+	client, err := mqttConnect(svcName, *cfg, logger)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	repo := exmqtt.New(client, cfg, logger)
+	repo := exmqtt.New(client, *cfg, logger)
 
 	counter, latency := makeMetrics()
 	repo = api.LoggingMiddleware(repo, logger)
@@ -140,27 +140,13 @@ func viperSave(configFile string, cfg map[string]string) error {
 	return nil
 }
 
-func viperRead(configFile string) (export.Config, error) {
-	viper.SetConfigFile(configFile)
-	cfg := export.Config{}
-
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println(err.Error())
-		return cfg, fmt.Errorf("Configuration file error: %s", err)
-	}
-	viper.Unmarshal(&cfg)
-	err := loadCertificate(&cfg)
-
-	if err != nil {
-		return cfg, err
-	}
-	return cfg, nil
-
-}
-
-func loadConfigs() (export.Config, error) {
+func loadConfigs() (*config.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
-	cfg := config.New(nil, nil, nil, configFile)
+	sc := config.ServerConf{}
+	rc := []config.Route{}
+	mc := config.MQTTConf{}
+
+	cfg := config.New(sc, rc, mc, configFile)
 	err := cfg.Read()
 	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
@@ -182,33 +168,34 @@ func loadConfigs() (export.Config, error) {
 		}
 		QoS := int(q)
 
-		sc : = config.Server {
-			NatsURL : mainflux.Env(envNatsURL, defNatsURL),
-			LogLevel : mainflux.Env(envLogLevel, defLogLevel),
-			Port : mainflux.Env(envPort, defPort),
+		sc := config.ServerConf{
+			NatsURL:  mainflux.Env(envNatsURL, defNatsURL),
+			LogLevel: mainflux.Env(envLogLevel, defLogLevel),
+			Port:     mainflux.Env(envPort, defPort),
 		}
 
-		mc := config.MQTT {
-			Host  : mainflux.Env(envMqttHost, defMqttHost),
-			Password : mainflux.Env(envMqttPassword, defMqttPassword),
-			Username : mainflux.Env(envMqttUsername, defMqttUsername),
-			
-			Retain : mqttRetain,
-			QoS : QoS,
-			MTLS : mqttMTLS,
-			SkipTLSVer : mqttSkipTLSVer,
+		mc := config.MQTTConf{
+			Host:     mainflux.Env(envMqttHost, defMqttHost),
+			Password: mainflux.Env(envMqttPassword, defMqttPassword),
+			Username: mainflux.Env(envMqttUsername, defMqttUsername),
 
-			CAPath : mainflux.Env(envMqttCA, defMqttCA),
-			ClientCertPath : mainflux.Env(envMqttCert, defMqttCert),
-			PrivKeyPath : mainflux.Env(envMqttPrivKey, defMqttPrivKey),
+			Retain:     mqttRetain,
+			QoS:        QoS,
+			MTLS:       mqttMTLS,
+			SkipTLSVer: mqttSkipTLSVer,
+
+			CAPath:      mainflux.Env(envMqttCA, defMqttCA),
+			CertPath:    mainflux.Env(envMqttCert, defMqttCert),
+			PrivKeyPath: mainflux.Env(envMqttPrivKey, defMqttPrivKey),
 		}
-		routes := []config.Route {
-			MqttTopic : mainflux.Env(envMqttChannel, defMqttChannel),
-			NatsTopic : "*"
-		}
-		rc := config.Routes{routes}
-		cfg := config.New(sc, rc, mc, configFile )
-		err = loadCertificate(&cfg)
+		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
+		natsTopic := "*"
+		rc := []config.Route{{
+			MqttTopic: &mqttTopic,
+			NatsTopic: &natsTopic,
+		}}
+		cfg := config.New(sc, rc, mc, configFile)
+		err = loadCertificate(cfg)
 		if err != nil {
 			return cfg, err
 		}
@@ -216,7 +203,7 @@ func loadConfigs() (export.Config, error) {
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err = loadCertificate(&cfg)
+	err = loadCertificate(cfg)
 	if err != nil {
 		return cfg, err
 	}
@@ -224,26 +211,26 @@ func loadConfigs() (export.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *export.Config) error {
+func loadCertificate(cfg *config.Config) error {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
-	if cfg.Mqtt.MTLS {
-		caFile, err := os.Open(cfg.Mqtt.CAPath)
+	if cfg.MQTT.MTLS {
+		caFile, err := os.Open(cfg.MQTT.CAPath)
 		defer caFile.Close()
 		if err != nil {
 			return err
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
-		clientCert, err := os.Open(cfg.Mqtt.CertPath)
+		clientCert, err := os.Open(cfg.MQTT.CertPath)
 		defer clientCert.Close()
 		if err != nil {
 			return err
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
-		privKey, err := os.Open(cfg.Mqtt.PrivKeyPath)
+		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
 			return err
@@ -256,8 +243,8 @@ func loadCertificate(cfg *export.Config) error {
 			return err
 		}
 
-		cfg.Mqtt.Cert = cert
-		cfg.Mqtt.CA = caByte
+		cfg.MQTT.Cert = cert
+		cfg.MQTT.CA = caByte
 
 	}
 	return nil
@@ -314,7 +301,7 @@ func startHTTPService(svc export.Service, port string, logger logger.Logger, err
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
 }
 
-func mqttConnect(name string, conf export.Config, logger logger.Logger) (mqtt.Client, error) {
+func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
 	conn := func(client mqtt.Client) {
 		logger.Info(fmt.Sprintf("Client %s connected", name))
 	}
@@ -324,29 +311,29 @@ func mqttConnect(name string, conf export.Config, logger logger.Logger) (mqtt.Cl
 	}
 
 	opts := mqtt.NewClientOptions().
-		AddBroker(conf.Mqtt.MqttHost).
+		AddBroker(conf.MQTT.Host).
 		SetClientID(name).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetOnConnectHandler(conn).
 		SetConnectionLostHandler(lost)
 
-	if conf.Mqtt.MqttUsername != "" && conf.Mqtt.MqttPassword != "" {
-		opts.SetUsername(conf.Mqtt.MqttUsername)
-		opts.SetPassword(conf.Mqtt.MqttPassword)
+	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {
+		opts.SetUsername(conf.MQTT.Username)
+		opts.SetPassword(conf.MQTT.Password)
 	}
 
-	if conf.Mqtt.MqttMTLS {
+	if conf.MQTT.MTLS {
 		cfg := &tls.Config{
-			InsecureSkipVerify: conf.Mqtt.MqttSkipTLSVer,
+			InsecureSkipVerify: conf.MQTT.SkipTLSVer,
 		}
 
-		if conf.Mqtt.MqttCA != nil {
+		if conf.MQTT.CA != nil {
 			cfg.RootCAs = x509.NewCertPool()
-			cfg.RootCAs.AppendCertsFromPEM(conf.Mqtt.MqttCA)
+			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
 		}
-		if conf.Mqtt.MqttCert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.Mqtt.MqttCert}
+		if conf.MQTT.Cert.Certificate != nil {
+			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
 		}
 
 		cfg.BuildNameToCertificate()

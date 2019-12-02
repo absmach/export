@@ -3,7 +3,7 @@
 
 // Package writers contain the domain concept definitions needed to
 // support Mainflux writer services functionality.
-package export
+package config
 
 import (
 	"crypto/tls"
@@ -22,9 +22,9 @@ type MQTTConf struct {
 	Retain      bool   `toml:"retain" mapstructure:"retain"`
 	QoS         int    `toml:"qos" mapstructure:"qos"`
 	Channel     string `toml:"channel" mapstructure:"channel"`
-	CAPath      string `toml:"ca" mapstructure:"ca"`
-	CertPath    string `toml:"cert" mapstructure:"cert"`
-	PrivKeyPath string `toml:"priv_key" mapstructure:"priv_key"`
+	CAPath      string `toml:"ca_path" mapstructure:"ca_path"`
+	CertPath    string `toml:"cert_path" mapstructure:"cert_path"`
+	PrivKeyPath string `toml:"priv_key_path" mapstructure:"priv_key_path"`
 	CA          []byte
 	Cert        tls.Certificate
 }
@@ -38,9 +38,9 @@ type RoutesConf struct {
 	Route []Route `toml:"routes" mapstructure:"routes"`
 }
 type Config struct {
-	Server ServerConf   `toml:"exp" mapstructure:"exp"`
-	Routes []RoutesConf `toml:"routes" mapstructure:"routes"`
-	MQTT   MQTTConf     `toml:"mqtt" mapstructure:"mqtt"`
+	Server ServerConf `toml:"exp" mapstructure:"exp"`
+	Routes []Route    `toml:"routes" mapstructure:"routes"`
+	MQTT   MQTTConf   `toml:"mqtt" mapstructure:"mqtt"`
 	File   string
 }
 
@@ -51,7 +51,7 @@ type Route struct {
 	Type      *string `toml:"type", mapstructure:"type"`
 }
 
-func New(sc ServerConf, rc []RoutesConf, mc MQTTConf, file string) *Config {
+func New(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
 	ac := Config{
 		Server: sc,
 		Routes: rc,
@@ -80,7 +80,8 @@ func (c *Config) Save() error {
 
 // Read - retrieve config from a file
 func (c *Config) Read() error {
-	data, err := ioutil.ReadFile(c.File)
+	file := c.File
+	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		fmt.Printf("Error reading config file: %s", err)
 		return err
@@ -90,6 +91,6 @@ func (c *Config) Read() error {
 		fmt.Printf("Error unmarshaling toml: %s", err)
 		return err
 	}
-
+	c.File = file
 	return nil
 }

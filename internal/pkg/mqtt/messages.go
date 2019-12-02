@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/influxdata/config"
 	"github.com/mainflux/export/internal/app/export"
+	"github.com/mainflux/export/internal/pkg/config"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
@@ -41,7 +41,7 @@ type fields map[string]interface{}
 type tags map[string]string
 
 // New returns new InfluxDB writer.
-func New(client mqtt.Client, conf export.Config, log logger.Logger) export.MessageRepository {
+func New(client mqtt.Client, conf config.Config, log logger.Logger) export.MessageRepository {
 	return &exportRepo{
 		client: client,
 		conf:   conf,
@@ -50,7 +50,6 @@ func New(client mqtt.Client, conf export.Config, log logger.Logger) export.Messa
 }
 
 func (repo *exportRepo) Publish(messages ...interface{}) error {
-	topic := fmt.Sprintf("channels/%s/messages", repo.conf.Mqtt.Channel)
 	for _, m := range messages {
 		msg, ok := m.(mainflux.Message)
 		if !ok {
@@ -67,14 +66,14 @@ func (repo *exportRepo) Publish(messages ...interface{}) error {
 			return fmt.Errorf(fmt.Sprintf("Failed to decode payload message: %s", err))
 		}
 
-		pubtopic := fmt.Sprintf("/%s/%s/%s", topic, msg.GetChannel(), msg.GetPublisher(), msg.GetSubtopic())
+		pubtopic := fmt.Sprintf("/%s/%s/%s", repo.conf.MQTT.Channel, msg.GetChannel(), msg.GetPublisher(), msg.GetSubtopic())
 
 		payload, err := senml.Encode(raw, senml.JSON)
 		if err != nil {
 			repo.log.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", pubtopic, err.Error()))
 		}
 		if token := repo.client.Publish(pubtopic, 0, false, payload); token.Wait() && token.Error() != nil {
-			repo.log.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", repo.conf.Mqtt.Channel, token.Error()))
+			repo.log.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", repo.conf.MQTT.Channel, token.Error()))
 		}
 	}
 	return nil
