@@ -14,19 +14,19 @@ import (
 )
 
 type MQTTConf struct {
-	Host        string `toml:"host" mapstructure:"host"`
-	Username    string `toml:"username" mapstructure:"username"`
-	Password    string `toml:"password" mapstructure:"password"`
-	MTLS        bool   `toml:"mtls" mapstructure:"mtls"`
-	SkipTLSVer  bool   `toml:"skip_tls_ver" mapstructure:"skip_tls_ver"`
-	Retain      bool   `toml:"retain" mapstructure:"retain"`
-	QoS         int    `toml:"qos" mapstructure:"qos"`
-	Channel     string `toml:"channel" mapstructure:"channel"`
-	CAPath      string `toml:"ca_path" mapstructure:"ca_path"`
-	CertPath    string `toml:"cert_path" mapstructure:"cert_path"`
-	PrivKeyPath string `toml:"priv_key_path" mapstructure:"priv_key_path"`
-	CA          []byte
-	Cert        tls.Certificate
+	Host        string          `toml:"host" mapstructure:"host"`
+	Username    string          `toml:"username" mapstructure:"username"`
+	Password    string          `toml:"password" mapstructure:"password"`
+	MTLS        bool            `toml:"mtls" mapstructure:"mtls"`
+	SkipTLSVer  bool            `toml:"skip_tls_ver" mapstructure:"skip_tls_ver"`
+	Retain      bool            `toml:"retain" mapstructure:"retain"`
+	QoS         int             `toml:"qos" mapstructure:"qos"`
+	Channel     string          `toml:"channel" mapstructure:"channel"`
+	CAPath      string          `toml:"ca_path" mapstructure:"ca_path"`
+	CertPath    string          `toml:"cert_path" mapstructure:"cert_path"`
+	PrivKeyPath string          `toml:"priv_key_path" mapstructure:"priv_key_path"`
+	CA          []byte          `toml:"-"`
+	Cert        tls.Certificate `toml:"-"`
 }
 
 type ServerConf struct {
@@ -41,7 +41,7 @@ type Config struct {
 	Server ServerConf `toml:"exp" mapstructure:"exp"`
 	Routes []Route    `toml:"routes" mapstructure:"routes"`
 	MQTT   MQTTConf   `toml:"mqtt" mapstructure:"mqtt"`
-	File   string
+	File   string     `toml:"-"`
 }
 
 type Route struct {
@@ -66,7 +66,7 @@ func New(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
 func (c *Config) Save() error {
 	b, err := toml.Marshal(*c)
 	if err != nil {
-		fmt.Printf("Error reading config file: %s", err)
+		fmt.Printf("Error writing config file: %s", err.Error())
 		return err
 	}
 
