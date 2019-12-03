@@ -6,19 +6,12 @@
 package api
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"strings"
 
 	"github.com/go-zoo/bone"
 	"github.com/mainflux/export/internal/app/export"
-	"github.com/mainflux/mainflux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	kithttp "github.com/go-kit/kit/transport/http"
 )
 
 const (
