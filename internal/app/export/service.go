@@ -65,6 +65,7 @@ func (c *exporter) Consume(m *nats.Msg) {
 		msgs := []interface{}{}
 		msgs = append(msgs, msg)
 		c.Export(msgs...)
+		return
 	}
 
 	c.Logger.Warn(fmt.Sprintf("Failed to unmarshal received message: %s", err))
