@@ -39,16 +39,29 @@ channels = "../docker/channels.toml"
   skip_tls_ver = "false"
   url = "tcp://mainflux.com:1883"
 ```
- 
-  `username` is actually thing id in mainflux cloud instance
-  and `password` is thing key
-  `channel` is mqtt topic where to publish mqtt data ( "channel/<channel_id>/messages" is format of mainflux mqtt topic)
+to run it edit configs/config.toml and change `channel`, `username`,`password` and `url`
+ * `username` is actually thing id in mainflux cloud instance
+ * `password` is thing key
+ * `channel` is mqtt topic where to publish mqtt data ( `channel/<channel_id>/messages` is format of mainflux mqtt topic)
 
+in order for export service to listen on mainflux nats deployed on the same machine NATS port must be exposed
+edit docker-compose.yml of mainflux (github.com/mainflux/mainflux/docker/docker-compose.yml )
+nats section must look like below
+```
+  nats:
+    image: nats:1.3.0
+    container_name: mainflux-nats
+    restart: on-failure
+    networks:
+      - mainflux-base-net
+    ports:
+      - 4222:4222
+```
   
-## Configuration
+## Environmet variables
 
 Service will look for config.toml first if not found it will  be configured 
-with env variables and new config.toml will be saved.
+with env variables and new config.toml will be saved with values populated from env vars.
 The service is configured using the environment variables presented in the
 following table. Note that any unset variables will be replaced with their
 default values.
@@ -72,5 +85,4 @@ default values.
 
 to change values be sure that there is no config.toml as this is default
 
-example of config file
 
