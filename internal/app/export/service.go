@@ -58,16 +58,13 @@ func (c *exporter) Start(queue string) error {
 
 func (c *exporter) Consume(m *nats.Msg) {
 	msg := mainflux.Message{}
-
 	err := proto.Unmarshal(m.Data, &msg)
-
 	if err == nil {
 		msgs := []interface{}{}
 		msgs = append(msgs, msg)
 		c.Export(msgs...)
 		return
 	}
-
 	c.Logger.Warn(fmt.Sprintf("Failed to unmarshal received message: %s", err))
 	return
 }
@@ -83,7 +80,6 @@ func (c *exporter) channelExists(channel string) bool {
 	if _, ok := c.Channels["*"]; ok {
 		return true
 	}
-
 	_, found := c.Channels[channel]
 	return found
 }

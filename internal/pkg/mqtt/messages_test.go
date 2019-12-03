@@ -17,10 +17,7 @@ var (
 	testLog, _  = log.New(os.Stdout, log.Info.String())
 	testDB      = "test"
 	streamsSize = 250
-	selectMsgs  = "SELECT * FROM test..messages"
-	dropMsgs    = "DROP SERIES FROM messages"
-
-	subtopic = "topic"
+	subtopic    = "topic"
 )
 
 var (
