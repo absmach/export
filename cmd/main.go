@@ -57,7 +57,7 @@ const (
 	envMqttMTLS       = "MF_EXPORT_MQTT_MTLS"
 	envMqttCA         = "MF_EXPORT_MQTT_CA"
 	envMqttQoS        = "MF_EXPORT_MQTT_QOS"
-	envMqttRetain     = "MF_EXPORT_RETAINS"
+	envMqttRetain     = "MF_EXPORT_MQTT_RETAIN"
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
 	envConfigFile     = "MF_EXPORT_CONF_PATH"
