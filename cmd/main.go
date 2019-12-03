@@ -25,7 +25,6 @@ import (
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -126,18 +125,6 @@ func main() {
 
 	err = <-errs
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
-}
-
-func viperSave(configFile string, cfg map[string]string) error {
-
-	for key, val := range cfg {
-		viper.Set(key, val)
-	}
-
-	viper.SetConfigFile(configFile)
-	viper.WriteConfig()
-
-	return nil
 }
 
 func loadConfigs() (*config.Config, error) {
@@ -249,33 +236,6 @@ func loadCertificate(cfg *config.Config) error {
 	}
 	return nil
 }
-
-// type channels struct {
-// 	List []string `toml:"filter"`
-// }
-
-// type chanConfig struct {
-// 	Channels channels `toml:"channels"`
-// }
-
-// func loadChansConfig(chanConfigPath string) map[string]bool {
-// 	data, err := ioutil.ReadFile(chanConfigPath)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	var chanCfg chanConfig
-// 	if err := toml.Unmarshal(data, &chanCfg); err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	chans := map[string]bool{}
-// 	for _, ch := range chanCfg.Channels.List {
-// 		chans[ch] = true
-// 	}
-
-// 	return chans
-// }
 
 func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
 	counter := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
