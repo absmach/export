@@ -43,7 +43,7 @@ const (
 	defMqttRetain     = false
 	defMqttCert       = "thing.cert"
 	defMqttPrivKey    = "thing.key"
-	defConfigFile     = "config.toml"
+	defConfigFile     = "../configs/config.toml"
 
 	envNatsURL  = "MF_NATS_URL"
 	envLogLevel = "MF_EXPORT_LOG_LEVEL"
