@@ -21,6 +21,9 @@ import (
 	"github.com/mainflux/export/internal/app/export/api"
 	"github.com/mainflux/export/internal/pkg/config"
 	exmqtt "github.com/mainflux/export/internal/pkg/mqtt"
+	"github.com/mainflux/export/internal/pkg/transformers"
+	"github.com/mainflux/export/internal/pkg/transformers/mflx"
+	"github.com/mainflux/export/internal/pkg/transformers/plain"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -103,14 +106,21 @@ func main() {
 	}
 
 	repo := exmqtt.New(client, *cfg, logger)
-
 	counter, latency := makeMetrics()
 	repo = api.LoggingMiddleware(repo, logger)
 	repo = api.MetricsMiddleware(repo, counter, latency)
-	svc := export.New(nc, repo, nil, *cfg, nil, logger)
-	if err := svc.Start(svcName); err != nil {
-		logger.Error(fmt.Sprintf("Failed to start exporte service: %s", err))
-		os.Exit(1)
+	svc := export.New(nc, repo, *cfg, nil, logger)
+	for _, r := range cfg.Routes {
+		var t transformers.Transformer
+		switch *r.Type {
+		case "mflx":
+			t = mflx.New()
+		default:
+			t = plain.New()
+		}
+		if err := svc.Start(*r.NatsTopic, t, svcName); err != nil {
+			logger.Error(fmt.Sprintf("Failed to start export service: %s for NATS topic %s", err, r.NatsTopic))
+		}
 	}
 
 	errs := make(chan error, 2)
