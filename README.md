@@ -1,7 +1,50 @@
 # export
 Mainflux Export service that sends messages from one Mainflux cloud to another via MQTT
 
+## Install
+Get the code:
 
+```
+go get github.com/mainflux/export
+cd $GOPATH/github.com/mainflux/export
+```
+
+Make:
+```
+make
+```
+
+## Usage
+### Config
+Export configuration is kept in `../configs/config.toml`.
+
+
+```
+channels = "../docker/channels.toml"
+
+[exp]
+  log_level = "debug"
+  nats = "nats://127.0.0.1:4222"
+  port = "8170"
+
+[mqtt]
+  channel = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
+  username = "4a437f46-da7b-4469-96b7-be754b5e8d36"
+  password = "ac6b57e0-9b70-45d6-94c8-e67ac9086165"
+  ca = "ca.crt"
+  cert = "thing.crt"
+  mtls = "false"
+  priv_key = "thing.key"
+  retain = "false"
+  skip_tls_ver = "false"
+  url = "tcp://mainflux.com:1883"
+```
+ 
+  `username` is actually thing id in mainflux cloud instance
+  and `password` is thing key
+  `channel` is mqtt topic where to publish mqtt data ( "channel/<channel_id>/messages" is format of mainflux mqtt topic)
+
+  
 ## Configuration
 
 Service will look for config.toml first if not found it will  be configured 
@@ -31,23 +74,3 @@ to change values be sure that there is no config.toml as this is default
 
 example of config file
 
-```
-channels = "../docker/channels.toml"
-
-[exp]
-  log_level = "debug"
-  nats = "nats://127.0.0.1:4222"
-  port = "8170"
-
-[mqtt]
-  ca = "ca.crt"
-  cert = "thing.crt"
-  channel = "4c66a785-1900-4844-8caa-56fb8cfd61eb"
-  mtls = "false"
-  password = "ac6b57e0-9b70-45d6-94c8-e67ac9086165"
-  priv_key = "thing.key"
-  retain = "false"
-  skip_tls_ver = "false"
-  url = "tcp://localhost:1883"
-  username = "4a437f46-da7b-4469-96b7-be754b5e8d36"
-```
