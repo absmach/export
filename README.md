@@ -23,7 +23,7 @@ default values.
 | MF_EXPORT_MQTT_CLIENT_CERT    | Client cert for authentication in case when MTLS = true       | thing.crt             |
 | MF_EXPORT_MQTT_CLIENT_PK      | Client key for authentication in case when MTLS = true        | thing.key             |
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                      | 0                     |
-| MF_EXPORT_RETAINS             | MQTT retain                                                   | false                 |
+| MF_EXPORT_MQTT_RETAINS        | MQTT retain                                                   | false                 |
 | MF_EXPORT_CONF_PATH           | Configuration file                                            | config.toml           |
 | MF_EXPORT_CHANNELS_CONFIG     | Channels to which will export service listen to               | channels.toml         |
 
