@@ -172,7 +172,6 @@ type RunOptions struct {
 	ExtraHosts   []string
 	CapAdd       []string
 	SecurityOpt  []string
-	DNS          []string
 	WorkingDir   string
 	NetworkID    string
 	Labels       map[string]string
@@ -181,40 +180,26 @@ type RunOptions struct {
 	Privileged   bool
 }
 
-// BuildOptions is used to pass in optional parameters when building a container
-type BuildOptions struct {
-	Dockerfile string
-	ContextDir string
-}
+// BuildAndRunWithOptions builds and starts a docker container
+func (d *Pool) BuildAndRunWithOptions(dockerfilePath string, opts *RunOptions) (*Resource, error) {
+	// Set the Dockerfile folder as build context
+	dir, file := filepath.Split(dockerfilePath)
 
-// BuildAndRunWithBuildOptions builds and starts a docker container.
-// Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
-func (d *Pool) BuildAndRunWithBuildOptions(buildOpts *BuildOptions, runOpts *RunOptions, hcOpts ...func(*dc.HostConfig)) (*Resource, error) {
 	err := d.Client.BuildImage(dc.BuildImageOptions{
-		Name:         runOpts.Name,
-		Dockerfile:   buildOpts.Dockerfile,
+		Name:         opts.Name,
+		Dockerfile:   file,
 		OutputStream: ioutil.Discard,
-		ContextDir:   buildOpts.ContextDir,
+		ContextDir:   dir,
 	})
 
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
 
-	runOpts.Repository = runOpts.Name
+	opts.Repository = opts.Name
 
-	return d.RunWithOptions(runOpts, hcOpts...)
+	return d.RunWithOptions(opts)
 }
-
-// BuildAndRunWithOptions builds and starts a docker container.
-// Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
-func (d *Pool) BuildAndRunWithOptions(dockerfilePath string, opts *RunOptions, hcOpts ...func(*dc.HostConfig)) (*Resource, error) {
-	// Set the Dockerfile folder as build context
-	dir, file := filepath.Split(dockerfilePath)
-	buildOpts := BuildOptions{Dockerfile:file, ContextDir:dir}
-	return d.BuildAndRunWithBuildOptions(&buildOpts, opts, hcOpts...)
-}
-
 
 // BuildAndRun builds and starts a docker container
 func (d *Pool) BuildAndRun(name, dockerfilePath string, env []string) (*Resource, error) {
@@ -222,13 +207,9 @@ func (d *Pool) BuildAndRun(name, dockerfilePath string, env []string) (*Resource
 }
 
 // RunWithOptions starts a docker container.
-// Optional modifier functions can be passed in order to change the hostconfig values not covered in RunOptions
 //
 // pool.Run(&RunOptions{Repository: "mongo", Cmd: []string{"mongod", "--smallfiles"}})
-// pool.Run(&RunOptions{Repository: "mongo", Cmd: []string{"mongod", "--smallfiles"}}, func(hostConfig *dc.HostConfig) {
-//			hostConfig.ShmSize = shmemsize
-//		})
-func (d *Pool) RunWithOptions(opts *RunOptions, hcOpts ...func(*dc.HostConfig)) (*Resource, error) {
+func (d *Pool) RunWithOptions(opts *RunOptions) (*Resource, error) {
 	repository := opts.Repository
 	tag := opts.Tag
 	env := opts.Env
@@ -280,22 +261,6 @@ func (d *Pool) RunWithOptions(opts *RunOptions, hcOpts ...func(*dc.HostConfig)) 
 		}
 	}
 
-	hostConfig := dc.HostConfig{
-		PublishAllPorts: true,
-		Binds:           opts.Mounts,
-		Links:           opts.Links,
-		PortBindings:    opts.PortBindings,
-		ExtraHosts:      opts.ExtraHosts,
-		CapAdd:          opts.CapAdd,
-		SecurityOpt:     opts.SecurityOpt,
-		Privileged:      opts.Privileged,
-		DNS:             opts.DNS,
-	}
-
-	for _, hostConfigOption := range hcOpts {
-		hostConfigOption(&hostConfig)
-	}
-
 	c, err := d.Client.CreateContainer(dc.CreateContainerOptions{
 		Name: opts.Name,
 		Config: &dc.Config{
@@ -310,7 +275,16 @@ func (d *Pool) RunWithOptions(opts *RunOptions, hcOpts ...func(*dc.HostConfig)) 
 			Labels:       opts.Labels,
 			StopSignal:   "SIGWINCH", // to support timeouts
 		},
-		HostConfig:       &hostConfig,
+		HostConfig: &dc.HostConfig{
+			PublishAllPorts: true,
+			Binds:           opts.Mounts,
+			Links:           opts.Links,
+			PortBindings:    opts.PortBindings,
+			ExtraHosts:      opts.ExtraHosts,
+			CapAdd:          opts.CapAdd,
+			SecurityOpt:     opts.SecurityOpt,
+			Privileged:      opts.Privileged,
+		},
 		NetworkingConfig: &networkingConfig,
 	})
 	if err != nil {
@@ -337,34 +311,6 @@ func (d *Pool) RunWithOptions(opts *RunOptions, hcOpts ...func(*dc.HostConfig)) 
 // pool.Run("mysql", "5.3", []string{"FOO=BAR", "BAR=BAZ"})
 func (d *Pool) Run(repository, tag string, env []string) (*Resource, error) {
 	return d.RunWithOptions(&RunOptions{Repository: repository, Tag: tag, Env: env})
-}
-
-// RemoveContainerByName find a container with the given name and removes it if present
-func (d *Pool) RemoveContainerByName(containerName string) error {
-	containers, err := d.Client.ListContainers(dc.ListContainersOptions{
-		All: true,
-		Filters: map[string][]string{
-			"name": []string{containerName},
-		},
-	})
-	if err != nil {
-		return errors.Wrapf(err, "Error while listing containers with name %s", containerName)
-	}
-
-	if len(containers) == 0 {
-		return nil
-	}
-
-	err = d.Client.RemoveContainer(dc.RemoveContainerOptions{
-		ID:            containers[0].ID,
-		Force:         true,
-		RemoveVolumes: true,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "Error while removing container with name %s", containerName)
-	}
-
-	return nil
 }
 
 // Purge removes a container and linked volumes from docker.

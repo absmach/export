@@ -1,0 +1,20 @@
+
+[exp]
+  log_level = "debug"
+  nats = "nats://localhost:4222"
+  port = "8170"
+
+[mqtt]
+  ca_path = "ca.crt"
+  cert_path = "thing.crt"
+  username= "53a795db-e46c-4d75-8ddc-6d2975337a4f"
+  password = "e2032af3-7323-47d6-8e8d-abe9eb0a0a8f"
+  channel = "channels/ace5c9ef-54cf-4d8e-8b4c-2f1908ff2cda/messages"
+  host = "tcp://142.93.118.47:18831"
+  mtls = false
+  priv_key_path = "thing.key"
+  qos = 0
+  retain = false
+  skip_tls_ver = false
+
+

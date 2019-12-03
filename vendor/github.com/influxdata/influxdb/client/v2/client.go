@@ -78,10 +78,6 @@ type Client interface {
 	// the UDP client.
 	Query(q Query) (*Response, error)
 
-	// QueryAsChunk makes an InfluxDB Query on the database. This will fail if using
-	// the UDP client.
-	QueryAsChunk(q Query) (*ChunkedResponse, error)
-
 	// Close releases any resources a Client may be using.
 	Close() error
 }
@@ -110,8 +106,6 @@ func NewHTTPClient(conf HTTPConfig) (Client, error) {
 	}
 	if conf.TLSConfig != nil {
 		tr.TLSClientConfig = conf.TLSConfig
-		// Make sure to preserve the InsecureSkipVerify setting from the config.
-		tr.TLSClientConfig.InsecureSkipVerify = conf.InsecureSkipVerify
 	}
 	return &client{
 		url:       *u,
@@ -163,7 +157,7 @@ func (c *client) Ping(timeout time.Duration) (time.Duration, string, error) {
 	}
 
 	if resp.StatusCode != http.StatusNoContent {
-		var err = errors.New(string(body))
+		var err = fmt.Errorf(string(body))
 		return 0, "", err
 	}
 
@@ -413,7 +407,7 @@ func (c *client) Write(bp BatchPoints) error {
 	}
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		var err = errors.New(string(body))
+		var err = fmt.Errorf(string(body))
 		return err
 	}
 
@@ -477,11 +471,11 @@ type Response struct {
 // It returns nil if no errors occurred on any statements.
 func (r *Response) Error() error {
 	if r.Err != "" {
-		return errors.New(r.Err)
+		return fmt.Errorf(r.Err)
 	}
 	for _, result := range r.Results {
 		if result.Err != "" {
-			return errors.New(result.Err)
+			return fmt.Errorf(result.Err)
 		}
 	}
 	return nil
@@ -502,26 +496,75 @@ type Result struct {
 
 // Query sends a command to the server and returns the Response.
 func (c *client) Query(q Query) (*Response, error) {
-	req, err := c.createDefaultRequest(q)
+	u := c.url
+	u.Path = path.Join(u.Path, "query")
+
+	jsonParameters, err := json.Marshal(q.Parameters)
+
 	if err != nil {
 		return nil, err
 	}
+
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "")
+	req.Header.Set("User-Agent", c.useragent)
+
+	if c.username != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+
 	params := req.URL.Query()
+	params.Set("q", q.Command)
+	params.Set("db", q.Database)
+	if q.RetentionPolicy != "" {
+		params.Set("rp", q.RetentionPolicy)
+	}
+	params.Set("params", string(jsonParameters))
 	if q.Chunked {
 		params.Set("chunked", "true")
 		if q.ChunkSize > 0 {
 			params.Set("chunk_size", strconv.Itoa(q.ChunkSize))
 		}
-		req.URL.RawQuery = params.Encode()
 	}
+
+	if q.Precision != "" {
+		params.Set("epoch", q.Precision)
+	}
+	req.URL.RawQuery = params.Encode()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if err := checkResponse(resp); err != nil {
-		return nil, err
+	// If we lack a X-Influxdb-Version header, then we didn't get a response from influxdb
+	// but instead some other service. If the error code is also a 500+ code, then some
+	// downstream loadbalancer/proxy/etc had an issue and we should report that.
+	if resp.Header.Get("X-Influxdb-Version") == "" && resp.StatusCode >= http.StatusInternalServerError {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil || len(body) == 0 {
+			return nil, fmt.Errorf("received status code %d from downstream server", resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("received status code %d from downstream server, with response body: %q", resp.StatusCode, body)
+	}
+
+	// If we get an unexpected content type, then it is also not from influx direct and therefore
+	// we want to know what we received and what status code was returned for debugging purposes.
+	if cType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type")); cType != "application/json" {
+		// Read up to 1kb of the body to help identify downstream errors and limit the impact of things
+		// like downstream serving a large file
+		body, err := ioutil.ReadAll(io.LimitReader(resp.Body, 1024))
+		if err != nil || len(body) == 0 {
+			return nil, fmt.Errorf("expected json response, got empty body, with status: %v", resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("expected json response, got %q, with status: %v and response body: %q", cType, resp.StatusCode, body)
 	}
 
 	var response Response
@@ -530,9 +573,6 @@ func (c *client) Query(q Query) (*Response, error) {
 		for {
 			r, err := cr.NextResponse()
 			if err != nil {
-				if err == io.EOF {
-					break
-				}
 				// If we got an error while decoding the response, send that back.
 				return nil, err
 			}
@@ -570,99 +610,10 @@ func (c *client) Query(q Query) (*Response, error) {
 	return &response, nil
 }
 
-// QueryAsChunk sends a command to the server and returns the Response.
-func (c *client) QueryAsChunk(q Query) (*ChunkedResponse, error) {
-	req, err := c.createDefaultRequest(q)
-	if err != nil {
-		return nil, err
-	}
-	params := req.URL.Query()
-	params.Set("chunked", "true")
-	if q.ChunkSize > 0 {
-		params.Set("chunk_size", strconv.Itoa(q.ChunkSize))
-	}
-	req.URL.RawQuery = params.Encode()
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkResponse(resp); err != nil {
-		return nil, err
-	}
-	return NewChunkedResponse(resp.Body), nil
-}
-
-func checkResponse(resp *http.Response) error {
-	// If we lack a X-Influxdb-Version header, then we didn't get a response from influxdb
-	// but instead some other service. If the error code is also a 500+ code, then some
-	// downstream loadbalancer/proxy/etc had an issue and we should report that.
-	if resp.Header.Get("X-Influxdb-Version") == "" && resp.StatusCode >= http.StatusInternalServerError {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil || len(body) == 0 {
-			return fmt.Errorf("received status code %d from downstream server", resp.StatusCode)
-		}
-
-		return fmt.Errorf("received status code %d from downstream server, with response body: %q", resp.StatusCode, body)
-	}
-
-	// If we get an unexpected content type, then it is also not from influx direct and therefore
-	// we want to know what we received and what status code was returned for debugging purposes.
-	if cType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type")); cType != "application/json" {
-		// Read up to 1kb of the body to help identify downstream errors and limit the impact of things
-		// like downstream serving a large file
-		body, err := ioutil.ReadAll(io.LimitReader(resp.Body, 1024))
-		if err != nil || len(body) == 0 {
-			return fmt.Errorf("expected json response, got empty body, with status: %v", resp.StatusCode)
-		}
-
-		return fmt.Errorf("expected json response, got %q, with status: %v and response body: %q", cType, resp.StatusCode, body)
-	}
-	return nil
-}
-
-func (c *client) createDefaultRequest(q Query) (*http.Request, error) {
-	u := c.url
-	u.Path = path.Join(u.Path, "query")
-
-	jsonParameters, err := json.Marshal(q.Parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "")
-	req.Header.Set("User-Agent", c.useragent)
-
-	if c.username != "" {
-		req.SetBasicAuth(c.username, c.password)
-	}
-
-	params := req.URL.Query()
-	params.Set("q", q.Command)
-	params.Set("db", q.Database)
-	if q.RetentionPolicy != "" {
-		params.Set("rp", q.RetentionPolicy)
-	}
-	params.Set("params", string(jsonParameters))
-
-	if q.Precision != "" {
-		params.Set("epoch", q.Precision)
-	}
-	req.URL.RawQuery = params.Encode()
-
-	return req, nil
-
-}
-
 // duplexReader reads responses and writes it to another writer while
 // satisfying the reader interface.
 type duplexReader struct {
-	r io.ReadCloser
+	r io.Reader
 	w io.Writer
 }
 
@@ -672,11 +623,6 @@ func (r *duplexReader) Read(p []byte) (n int, err error) {
 		r.w.Write(p[:n])
 	}
 	return n, err
-}
-
-// Close closes the response.
-func (r *duplexReader) Close() error {
-	return r.r.Close()
 }
 
 // ChunkedResponse represents a response from the server that
@@ -689,12 +635,8 @@ type ChunkedResponse struct {
 
 // NewChunkedResponse reads a stream and produces responses from the stream.
 func NewChunkedResponse(r io.Reader) *ChunkedResponse {
-	rc, ok := r.(io.ReadCloser)
-	if !ok {
-		rc = ioutil.NopCloser(r)
-	}
 	resp := &ChunkedResponse{}
-	resp.duplex = &duplexReader{r: rc, w: &resp.buf}
+	resp.duplex = &duplexReader{r: r, w: &resp.buf}
 	resp.dec = json.NewDecoder(resp.duplex)
 	resp.dec.UseNumber()
 	return resp
@@ -703,9 +645,10 @@ func NewChunkedResponse(r io.Reader) *ChunkedResponse {
 // NextResponse reads the next line of the stream and returns a response.
 func (r *ChunkedResponse) NextResponse() (*Response, error) {
 	var response Response
+
 	if err := r.dec.Decode(&response); err != nil {
 		if err == io.EOF {
-			return nil, err
+			return nil, nil
 		}
 		// A decoding error happened. This probably means the server crashed
 		// and sent a last-ditch error message to us. Ensure we have read the
@@ -716,9 +659,4 @@ func (r *ChunkedResponse) NextResponse() (*Response, error) {
 
 	r.buf.Reset()
 	return &response, nil
-}
-
-// Close closes the response.
-func (r *ChunkedResponse) Close() error {
-	return r.duplex.Close()
 }
