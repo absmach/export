@@ -5,7 +5,7 @@ package export
 
 // MessageRepository specifies message writing API.
 type MessageRepository interface {
-	// Save method is used to save published message. A non-nil
+	// Publish method is used to save published message to cloud. A non-nil
 	// error is returned to indicate  operation failure.
-	Publish(...interface{}) error
+	Publish([]byte) error
 }

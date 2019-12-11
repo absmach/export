@@ -107,7 +107,7 @@ func main() {
 	counter, latency := makeMetrics()
 	repo = api.LoggingMiddleware(repo, logger)
 	repo = api.MetricsMiddleware(repo, counter, latency)
-	svc := export.New(nc, repo, nil, nil, nil, logger)
+	svc := export.New(nc, repo, *cfg, nil, nil, nil, logger)
 	if err := svc.Start(svcName); err != nil {
 		logger.Error(fmt.Sprintf("Failed to start exporte service: %s", err))
 		os.Exit(1)
