@@ -26,10 +26,10 @@ func MetricsMiddleware(repo export.MessageRepository, counter metrics.Counter, l
 	}
 }
 
-func (mm *metricsMiddleware) Publish(msgs ...interface{}) error {
+func (mm *metricsMiddleware) Publish(msgs []byte) error {
 	defer func(begin time.Time) {
 		mm.counter.With("method", "handle_message").Add(1)
 		mm.latency.With("method", "handle_message").Observe(time.Since(begin).Seconds())
 	}(time.Now())
-	return mm.repo.Publish(msgs...)
+	return mm.repo.Publish(msgs)
 }

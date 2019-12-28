@@ -94,3 +94,12 @@ func (c *Config) Read() error {
 	c.File = file
 	return nil
 }
+
+// ReadFromB - retrieve config from a byte
+func (c *Config) ReadFromB(data []byte) error {
+	if err := toml.Unmarshal(data, c); err != nil {
+		fmt.Printf("Error unmarshaling toml: %s", err)
+		return err
+	}
+	return nil
+}
