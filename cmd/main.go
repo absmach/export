@@ -176,7 +176,7 @@ func loadConfigs() (*config.Config, error) {
 		if err != nil {
 			return cfg, err
 		}
-
+		cfg.Save()
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
