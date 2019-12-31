@@ -38,6 +38,16 @@ channels = "../docker/channels.toml"
   retain = "false"
   skip_tls_ver = "false"
   url = "tcp://mainflux.com:1883"
+
+[[routes]]
+  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
+  nats_topic = "*"
+  type = "mflx"
+
+[[routes]]
+  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
+  nats_topic = "*"
+  type = "plain"
 ```
 to run it edit configs/config.toml and change `channel`, `username`,`password` and `url`
  * `username` is actually thing id in mainflux cloud instance
@@ -85,4 +95,12 @@ default values.
 
 to change values be sure that there is no config.toml as this is default
 
+## How to save config via agent
 
+```mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"config.toml, RmlsZSA9ICIuLi9jb25maWdzL2NvbmZpZy50b21sIgoKW2V4cF0KICBsb2dfbGV2ZWwgPSAiZGVidWciCiAgbmF0cyA9ICJuYXRzOi8vMTI3LjAuMC4xOjQyMjIiCiAgcG9ydCA9ICI4MTcwIgoKW21xdHRdCiAgY2FfcGF0aCA9ICJjYS5jcnQiCiAgY2VydF9wYXRoID0gInRoaW5nLmNydCIKICBjaGFubmVsID0gIiIKICBob3N0ID0gInRjcDovL2xvY2FsaG9zdDoxODgzIgogIG10bHMgPSBmYWxzZQogIHBhc3N3b3JkID0gImFjNmI1N2UwLTliNzAtNDVkNi05NGM4LWU2N2FjOTA4NjE2NSIKICBwcml2X2tleV9wYXRoID0gInRoaW5nLmtleSIKICBxb3MgPSAwCiAgcmV0YWluID0gZmFsc2UKICBza2lwX3Rsc192ZXIgPSBmYWxzZQogIHVzZXJuYW1lID0gIjRhNDM3ZjQ2LWRhN2ItNDQ2OS05NmI3LWJlNzU0YjVlOGQzNiIKCltbcm91dGVzXV0KICBtcXR0X3RvcGljID0gIjRjNjZhNzg1LTE5MDAtNDg0NC04Y2FhLTU2ZmI4Y2ZkNjFlYiIKICBuYXRzX3RvcGljID0gIioiCg==\"}]"```
+
+`vs="config_file_path, file_cont_base64"` - vs determines where to save file and contains file content in base64 encoding payload:
+```
+b,_ := toml.Marshal(export.Config)
+payload := base64.StdEncoding.EncodeToString(b)
+```
