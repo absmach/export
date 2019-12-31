@@ -168,8 +168,8 @@ func loadConfigs() (*config.Config, error) {
 		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
 		natsTopic := "*"
 		rc := []config.Route{{
-			MqttTopic: &mqttTopic,
-			NatsTopic: &natsTopic,
+			MqttTopic: mqttTopic,
+			NatsTopic: natsTopic,
 		}}
 		cfg := config.New(sc, rc, mc, configFile)
 		err = loadCertificate(cfg)

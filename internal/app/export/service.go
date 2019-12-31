@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/export/internal/pkg/routes/dflt"
 	"github.com/mainflux/export/internal/pkg/routes/mflx"
+	"github.com/mainflux/export/pkg/config"
 	log "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 )
@@ -49,14 +49,14 @@ func New(nc *nats.Conn, mqtt mqtt.Client, c config.Config, logger log.Logger) Se
 func (e *exporter) Start(queue string) {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
-		switch *r.Type {
+		switch r.Type {
 		case "mflx":
-			route = mflx.New(*r.NatsTopic, *r.MqttTopic, *r.SubTopic, e.Mqtt, e.Logger)
+			route = mflx.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		default:
-			route = dflt.New(*r.NatsTopic, *r.MqttTopic, *r.SubTopic, e.Mqtt, e.Logger)
+			route = dflt.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		}
 		e.Routes = append(e.Routes, route)
-		_, err := e.Nc.QueueSubscribe(*r.NatsTopic, fmt.Sprintf("%s-%s", queue, *r.NatsTopic), route.Consume)
+		_, err := e.Nc.QueueSubscribe(r.NatsTopic, fmt.Sprintf("%s-%s", queue, r.NatsTopic), route.Consume)
 		if err != nil {
 			e.Logger.Error(fmt.Sprintf("Failed to subscribe for NATS/MQTT %s/%s", r.NatsTopic, r.MqttTopic))
 		}
