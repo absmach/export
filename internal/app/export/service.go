@@ -5,6 +5,7 @@ package export
 
 import (
 	"fmt"
+	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/routes"
@@ -17,27 +18,35 @@ import (
 
 type Service interface {
 	Start(string)
+	Publish(b []byte, topic string) error
+	Connect()
+	Disconnect()
+	IsConnected() bool
 }
 
-var _ Service = (*exporter)(nil)
+var _ Service = (*Exporter)(nil)
 
-type exporter struct {
-	Nc     *nats.Conn
-	Mqtt   mqtt.Client
-	Logger log.Logger
-	Cfg    config.Config
-	Routes []routes.Route
+type Exporter struct {
+	Name      string
+	Nc        *nats.Conn
+	Mqtt      mqtt.Client
+	Logger    log.Logger
+	Cfg       config.Config
+	Routes    []routes.Route
+	Connected bool
+	mu        sync.Mutex
 }
 
 // New create new instance of export service
 func New(nc *nats.Conn, mqtt mqtt.Client, c config.Config, logger log.Logger) Service {
 	routes := make([]routes.Route, 0)
-	e := exporter{
+	e := Exporter{
 		Nc:     nc,
 		Mqtt:   mqtt,
 		Logger: logger,
 		Cfg:    c,
 		Routes: routes,
+		mu:     sync.Mutex{},
 	}
 
 	return &e
@@ -46,14 +55,14 @@ func New(nc *nats.Conn, mqtt mqtt.Client, c config.Config, logger log.Logger) Se
 // Start method starts consuming messages received from NATS.
 // and makes routes according to the configuration file.
 // Routes export messages to mqtt.
-func (e *exporter) Start(queue string) {
+func (e *Exporter) Start(queue string) {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
 		switch r.Type {
 		case "mflx":
-			route = mflx.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = mflx.New(e, r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		default:
-			route = dflt.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = dflt.New(e, r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		}
 		e.Routes = append(e.Routes, route)
 		_, err := e.Nc.QueueSubscribe(r.NatsTopic, fmt.Sprintf("%s-%s", queue, r.NatsTopic), route.Consume)
@@ -62,4 +71,26 @@ func (e *exporter) Start(queue string) {
 		}
 
 	}
+}
+func (e *Exporter) Publish(b []byte, topic string) error {
+	return e.Publish(b, topic)
+}
+func (e *Exporter) IsConnected() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	r := e.Connected
+	return r
+}
+
+func (e *Exporter) Connect() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.Connected = true
+
+}
+
+func (e *Exporter) Disconnect() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.Connected = false
 }

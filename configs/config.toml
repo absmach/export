@@ -7,14 +7,22 @@
 [mqtt]
   ca_path = "ca.crt"
   cert_path = "thing.crt"
-  username= "53a795db-e46c-4d75-8ddc-6d2975337a4f"
-  password = "e2032af3-7323-47d6-8e8d-abe9eb0a0a8f"
-  channel = "channels/ace5c9ef-54cf-4d8e-8b4c-2f1908ff2cda/messages"
-  host = "tcp://142.93.118.47:18831"
+  username= "79e8d5a3-ad4f-4adb-b1ce-3f42be7ef258"
+  password = "f8bc8040-066b-4a80-bc72-fe027ff077da"
+  channel = "channels/69bdb933-a52f-43b9-89f8-82adc54b170d/messages"
+  host = "tcp://localhost:18831"
   mtls = false
   priv_key_path = "thing.key"
   qos = 0
   retain = false
   skip_tls_ver = false
 
+[[routes]]
+  mqtt_topic = "4c66a785-1900-4844-8caa-56fb8cfd61eb"
+  nats_topic = "*"
+  type = "mflx"
 
+[[routes]]
+  mqtt_topic = "4c66a785-1900-4844-8caa-56fb8cfd61eb"
+  nats_topic = "*"
+  type = "plain"

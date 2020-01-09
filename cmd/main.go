@@ -16,14 +16,13 @@ import (
 	"syscall"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
+	"github.com/mainflux/export/internal/pkg/storage"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -101,7 +100,9 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	svc := export.New(nc, client, *cfg, logger)
+	storage := storage.NewFileStore("store", client)
+
+	svc := export.New(nc, *cfg, logger, storage)
 	svc.Start(svcName)
 
 	errs := make(chan error, 2)
@@ -227,42 +228,26 @@ func loadCertificate(cfg *config.Config) error {
 	return nil
 }
 
-func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
-	counter := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
-		Namespace: "export",
-		Subsystem: "message_writer",
-		Name:      "request_count",
-		Help:      "Number of database inserts.",
-	}, []string{"method"})
-
-	latency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-		Namespace: "export",
-		Subsystem: "message_writer",
-		Name:      "request_latency_microseconds",
-		Help:      "Total duration of inserts in microseconds.",
-	}, []string{"method"})
-
-	return counter, latency
-}
-
 func startHTTPService(svc export.Service, port string, logger logger.Logger, errs chan error) {
 	p := fmt.Sprintf(":%s", port)
 	logger.Info(fmt.Sprintf("Export service started, exposed port %s", p))
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
 }
 
-func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
+func mqttConnect(svc export.Service, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
 	conn := func(client mqtt.Client) {
-		logger.Info(fmt.Sprintf("Client %s connected", name))
+		logger.Info(fmt.Sprintf("Client %s connected", "EXPORT"))
+		svc.Connect()
 	}
 
 	lost := func(client mqtt.Client, err error) {
-		logger.Info(fmt.Sprintf("Client %s disconnected", name))
+		logger.Info(fmt.Sprintf("Client %s disconnected", "EXPORT"))
+		svc.Disconnect()
 	}
 
 	opts := mqtt.NewClientOptions().
 		AddBroker(conf.MQTT.Host).
-		SetClientID(name).
+		SetClientID("EXPORT").
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetOnConnectHandler(conn).

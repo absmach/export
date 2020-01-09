@@ -5,7 +5,9 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gogo/protobuf/proto"
+	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/pkg/routes"
+	"github.com/mainflux/export/internal/pkg/storage"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
@@ -31,15 +33,17 @@ type route struct {
 	subtopic  string
 	logger    logger.Logger
 	mqtt      mqtt.Client
+	expSvc    export.Service
 }
 
-func New(n, m, s string, mqtt mqtt.Client, logger logger.Logger) routes.Route {
+func New(e export.Service, n, m, s string, mqtt mqtt.Client, logger logger.Logger) routes.Route {
 	return &route{
 		natsTopic: n,
 		mqttTopic: m,
 		subtopic:  s,
 		mqtt:      mqtt,
 		logger:    logger,
+		expSvc:    export.Service,
 	}
 }
 
@@ -60,12 +64,14 @@ func (r *route) Consume(m *nats.Msg) {
 	}
 
 	payload, err := senml.Encode(raw, senml.JSON)
-	r.Publish(payload)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to encode %s", err.Error()))
+		return 
+	}
+	err = r.expSvc.Publish(payload, r.mqttTopic)
+	if err!= nil {
+		r.logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.mqttTopic, token.Error()))
+	}
 	return
 }
 
-func (r *route) Publish(bytes []byte) {
-	if token := r.mqtt.Publish(r.mqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
-		r.logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.mqttTopic, token.Error()))
-	}
-}
