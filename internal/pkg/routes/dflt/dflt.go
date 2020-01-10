@@ -12,22 +12,10 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-type route struct {
-	natsTopic string
-	mqttTopic string
-	subtopic  string
-	logger    logger.Logger
-	mqtt      mqtt.Client
-}
+type route routes.R
 
-func New(n, m, s string, mqtt mqtt.Client, logger logger.Logger) routes.Route {
-	return &route{
-		natsTopic: n,
-		mqttTopic: m,
-		subtopic:  s,
-		mqtt:      mqtt,
-		logger:    logger,
-	}
+func New(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
+	return routes.NewRoute(n, m, s, mqtt, l)
 }
 
 func (r *route) Consume(m *nats.Msg) {
@@ -35,7 +23,7 @@ func (r *route) Consume(m *nats.Msg) {
 }
 
 func (r *route) Publish(bytes []byte) {
-	if token := r.mqtt.Publish(r.mqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
-		r.logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.mqttTopic, token.Error()))
+	if token := r.Mqtt.Publish(r.MqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
+		r.Logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.MqttTopic, token.Error()))
 	}
 }
