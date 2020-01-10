@@ -20,7 +20,7 @@
 [[routes]]
   mqtt_topic = "4c66a785-1900-4844-8caa-56fb8cfd61eb"
   nats_topic = "*"
-  type = "mflx"
+  type = "mfx"
 
 [[routes]]
   mqtt_topic = "4c66a785-1900-4844-8caa-56fb8cfd61eb"
