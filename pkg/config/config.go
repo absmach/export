@@ -104,7 +104,7 @@ func (c *Config) ReadFile() errors.Error {
 	return nil
 }
 
-// ReadFromB - retrieve config from a byte
+// ReadBytes - retrieve config from a byte
 func (c *Config) ReadBytes(data []byte) errors.Error {
 	if err := toml.Unmarshal(data, c); err != nil {
 		return errors.Wrap(errUnmarshalConfigContent, err)
