@@ -21,6 +21,7 @@ import (
 	"github.com/mainflux/export/internal/app/export/api"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
+	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
@@ -123,7 +124,7 @@ func loadConfigs() (*config.Config, error) {
 	rc := []config.Route{}
 	mc := config.MQTTConf{}
 
-	cfg := config.New(sc, rc, mc, configFile)
+	cfg := config.NewConfig(sc, rc, mc, configFile)
 	err := cfg.Read()
 	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
@@ -171,12 +172,15 @@ func loadConfigs() (*config.Config, error) {
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
 		}}
-		cfg := config.New(sc, rc, mc, configFile)
+		cfg := config.NewConfig(sc, rc, mc, configFile)
 		err = loadCertificate(cfg)
 		if err != nil {
 			return cfg, err
 		}
-		cfg.Save()
+		err = cfg.Save()
+		if err != nil {
+			log.Println(fmt.Sprintf("Failed to save %s", err))
+		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
@@ -188,7 +192,7 @@ func loadConfigs() (*config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.Config) error {
+func loadCertificate(cfg *config.Config) errors.Error {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
@@ -196,28 +200,28 @@ func loadCertificate(cfg *config.Config) error {
 		caFile, err := os.Open(cfg.MQTT.CAPath)
 		defer caFile.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.MQTT.CertPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
 		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 
 		cfg.MQTT.Cert = cert
