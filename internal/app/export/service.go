@@ -8,8 +8,8 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/routes"
-	"github.com/mainflux/export/internal/pkg/routes/dflt"
 	"github.com/mainflux/export/internal/pkg/routes/mfx"
+	"github.com/mainflux/export/internal/pkg/routes/plain"
 	"github.com/mainflux/export/pkg/config"
 	log "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -51,9 +51,9 @@ func (e *exporter) Start(queue string) {
 	for _, r := range e.Cfg.Routes {
 		switch r.Type {
 		case "mfx":
-			route = mfx.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		default:
-			route = dflt.New(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = plain.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
 		}
 		e.Routes = append(e.Routes, route)
 		_, err := e.Nc.QueueSubscribe(r.NatsTopic, fmt.Sprintf("%s-%s", queue, r.NatsTopic), route.Consume)

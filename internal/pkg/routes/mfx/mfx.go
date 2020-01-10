@@ -28,17 +28,28 @@ var formats = map[string]senml.Format{
 	CBOR: senml.CBOR,
 }
 
-type route routes.R
-
-func New(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
-	return routes.NewRoute(n, m, s, mqtt, l)
+type mfxRoute struct {
+	route routes.R
 }
 
-func (r route) Consume(m *nats.Msg) {
+func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
+	return &mfxRoute{
+		route: routes.R{
+			NatsTopic: n,
+			MqttTopic: m,
+			Subtopic:  s,
+			Mqtt:      mqtt,
+			Logger:    l,
+		},
+	}
+}
+
+func (mr mfxRoute) Consume(m *nats.Msg) {
+	fmt.Println("COnsume 2")
 	msg := mainflux.Message{}
 	err := proto.Unmarshal(m.Data, &msg)
 	if err != nil {
-		r.Logger.Error(fmt.Sprintf("Failed to unmarshal %s", err.Error()))
+		mr.route.Logger.Error(fmt.Sprintf("Failed to unmarshal %s", err.Error()))
 	}
 	format, ok := formats[msg.ContentType]
 	if !ok {
@@ -47,16 +58,16 @@ func (r route) Consume(m *nats.Msg) {
 
 	raw, err := senml.Decode(msg.Payload, format)
 	if err != nil {
-		r.Logger.Error(fmt.Sprintf("Failed to decode payload message: %s", err))
+		mr.route.Logger.Error(fmt.Sprintf("Failed to decode payload message: %s", err))
 	}
 
 	payload, err := senml.Encode(raw, senml.JSON)
-	r.Publish(payload)
+	mr.route.Publish(payload)
 	return
 }
 
-func (r route) Publish(bytes []byte) {
-	if token := r.Mqtt.Publish(r.MqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
-		r.Logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.MqttTopic, token.Error()))
+func (mr mfxRoute) Publish(bytes []byte) {
+	if token := mr.route.Mqtt.Publish(mr.route.MqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
+		mr.route.Logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", mr.route.MqttTopic, token.Error()))
 	}
 }

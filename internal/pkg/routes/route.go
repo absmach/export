@@ -17,16 +17,6 @@ type R struct {
 	Mqtt      mqtt.Client
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client, logger logger.Logger) Route {
-	return &R{
-		NatsTopic: n,
-		MqttTopic: m,
-		Subtopic:  s,
-		Mqtt:      mqtt,
-		Logger:    logger,
-	}
-}
-
 type Route interface {
 	Consume(m *nats.Msg)
 	Publish([]byte)
