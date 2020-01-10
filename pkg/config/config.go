@@ -87,8 +87,8 @@ func (c *Config) Save() errors.Error {
 	return nil
 }
 
-// Read - retrieve config from a file
-func (c *Config) Read() errors.Error {
+// ReadFile - retrieve config from a file
+func (c *Config) ReadFile() errors.Error {
 	file := c.File
 	if file == "" {
 		file = dfltFile
@@ -105,7 +105,7 @@ func (c *Config) Read() errors.Error {
 }
 
 // ReadFromB - retrieve config from a byte
-func (c *Config) ReadFromB(data []byte) errors.Error {
+func (c *Config) ReadBytes(data []byte) errors.Error {
 	if err := toml.Unmarshal(data, c); err != nil {
 		return errors.Wrap(errUnmarshalConfigContent, err)
 	}

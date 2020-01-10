@@ -125,7 +125,7 @@ func loadConfigs() (*config.Config, error) {
 	mc := config.MQTTConf{}
 
 	cfg := config.NewConfig(sc, rc, mc, configFile)
-	err := cfg.Read()
+	err := cfg.ReadFile()
 	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
