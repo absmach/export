@@ -42,7 +42,7 @@ func New(nc *nats.Conn, mqtt mqtt.Client, c config.Config, logger log.Logger) Se
 	return &e
 }
 
-// Start method starts consuming messages received from NATS.
+// Start method starts consuming messages received from NATS
 // and makes routes according to the configuration file.
 // Routes export messages to mqtt.
 func (e *exporter) Start(queue string) {
