@@ -4,12 +4,18 @@
 package routes
 
 import (
+	"fmt"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/nats-io/nats.go"
 )
 
-type R struct {
+// Route - message route, tells which nats topic messages goes to which mqtt topic.
+// Later we can add direction and other combination like ( nats-nats).
+// Route is used in mfx and plain. Route is like base implementation and mfx and plain
+// are extended implemntation.
+type Route struct {
 	NatsTopic string
 	MqttTopic string
 	Subtopic  string
@@ -17,10 +23,27 @@ type R struct {
 	Mqtt      mqtt.Client
 }
 
-type Route interface {
+type RouteIF interface {
 	Consume(m *nats.Msg)
 	Publish([]byte)
 }
 
-func (r R) Consume(m *nats.Msg) {}
-func (r R) Publish([]byte)      {}
+func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) RouteIF {
+	return &Route{
+		NatsTopic: n,
+		MqttTopic: m,
+		Subtopic:  s,
+		Mqtt:      mqtt,
+		Logger:    l,
+	}
+}
+
+func (r Route) Consume(m *nats.Msg) {
+	r.Publish(m.Data)
+}
+
+func (r Route) Publish(bytes []byte) {
+	if token := r.Mqtt.Publish(r.MqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
+		r.Logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", r.MqttTopic, token.Error()))
+	}
+}

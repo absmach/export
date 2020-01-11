@@ -29,12 +29,12 @@ var formats = map[string]senml.Format{
 }
 
 type mfxRoute struct {
-	route routes.R
+	route routes.Route
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
+func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.RouteIF {
 	return &mfxRoute{
-		route: routes.R{
+		route: routes.Route{
 			NatsTopic: n,
 			MqttTopic: m,
 			Subtopic:  s,
@@ -45,7 +45,6 @@ func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
 }
 
 func (mr mfxRoute) Consume(m *nats.Msg) {
-	fmt.Println("COnsume 2")
 	msg := mainflux.Message{}
 	err := proto.Unmarshal(m.Data, &msg)
 	if err != nil {
