@@ -10,6 +10,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/mainflux/mainflux v0.0.0-20191223163044-f42f2095bab4
 	github.com/mainflux/senml v1.0.0
+	github.com/nats-io/gnatsd v1.4.1
 	github.com/nats-io/nats-server/v2 v2.1.2 // indirect
 	github.com/nats-io/nats.go v1.9.1
 	github.com/pelletier/go-toml v1.6.0

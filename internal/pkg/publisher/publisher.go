@@ -2,10 +2,10 @@ package publisher
 
 import (
 	"encoding/json"
+	"time"
+
 	"github.com/cloudflare/buffer"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/mainflux/export/internal/app/export"
-	"time"
 )
 
 const (
@@ -22,7 +22,6 @@ type record struct {
 type storage struct {
 	buff *buffer.Buffer
 	mqtt mqtt.Client
-	exp  export.Exporter
 }
 type File interface {
 	Publish(b []byte, topic string) (err error)
@@ -50,7 +49,6 @@ func (s *storage) write(b []byte, topic string) (err error) {
 }
 
 func (s *storage) Publish(b []byte, topic string) (err error) {
-
 	return nil
 }
 

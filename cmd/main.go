@@ -5,7 +5,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,12 +14,11 @@ import (
 	"strconv"
 	"syscall"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
-	"github.com/mainflux/export/internal/pkg/storage"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
+	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 )
@@ -95,14 +93,10 @@ func main() {
 	}
 	defer nc.Close()
 
-	client, err := mqttConnect(svcName, *cfg, logger)
+	svc, err := export.New(nc, *cfg, logger)
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf(fmt.Sprintf("Failed to start service %s", err.Error()))
 	}
-
-	storage := storage.NewFileStore("store", client)
-
-	svc := export.New(nc, *cfg, logger, storage)
 	svc.Start(svcName)
 
 	errs := make(chan error, 2)
@@ -124,8 +118,8 @@ func loadConfigs() (*config.Config, error) {
 	rc := []config.Route{}
 	mc := config.MQTTConf{}
 
-	cfg := config.New(sc, rc, mc, configFile)
-	err := cfg.Read()
+	cfg := config.NewConfig(sc, rc, mc, configFile)
+	err := cfg.ReadFile()
 	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
@@ -172,12 +166,15 @@ func loadConfigs() (*config.Config, error) {
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
 		}}
-		cfg := config.New(sc, rc, mc, configFile)
+		cfg := config.NewConfig(sc, rc, mc, configFile)
 		err = loadCertificate(cfg)
 		if err != nil {
 			return cfg, err
 		}
-		cfg.Save()
+		err = cfg.Save()
+		if err != nil {
+			log.Println(fmt.Sprintf("Failed to save %s", err))
+		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
@@ -189,7 +186,7 @@ func loadConfigs() (*config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.Config) error {
+func loadCertificate(cfg *config.Config) errors.Error {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
@@ -197,28 +194,28 @@ func loadCertificate(cfg *config.Config) error {
 		caFile, err := os.Open(cfg.MQTT.CAPath)
 		defer caFile.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.MQTT.CertPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
 		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return err
+			return errors.Wrap(nil, err)
 		}
 
 		cfg.MQTT.Cert = cert
@@ -232,56 +229,4 @@ func startHTTPService(svc export.Service, port string, logger logger.Logger, err
 	p := fmt.Sprintf(":%s", port)
 	logger.Info(fmt.Sprintf("Export service started, exposed port %s", p))
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
-}
-
-func mqttConnect(svc export.Service, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
-	conn := func(client mqtt.Client) {
-		logger.Info(fmt.Sprintf("Client %s connected", "EXPORT"))
-		svc.Connect()
-	}
-
-	lost := func(client mqtt.Client, err error) {
-		logger.Info(fmt.Sprintf("Client %s disconnected", "EXPORT"))
-		svc.Disconnect()
-	}
-
-	opts := mqtt.NewClientOptions().
-		AddBroker(conf.MQTT.Host).
-		SetClientID("EXPORT").
-		SetCleanSession(true).
-		SetAutoReconnect(true).
-		SetOnConnectHandler(conn).
-		SetConnectionLostHandler(lost)
-
-	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {
-		opts.SetUsername(conf.MQTT.Username)
-		opts.SetPassword(conf.MQTT.Password)
-	}
-
-	if conf.MQTT.MTLS {
-		cfg := &tls.Config{
-			InsecureSkipVerify: conf.MQTT.SkipTLSVer,
-		}
-
-		if conf.MQTT.CA != nil {
-			cfg.RootCAs = x509.NewCertPool()
-			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
-		}
-		if conf.MQTT.Cert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
-		}
-
-		cfg.BuildNameToCertificate()
-		opts.SetTLSConfig(cfg)
-		opts.SetProtocolVersion(4)
-	}
-	client := mqtt.NewClient(opts)
-	token := client.Connect()
-	token.Wait()
-
-	if token.Error() != nil {
-		logger.Error(fmt.Sprintf("Client %s had error connecting to the broker: %s\n", name, token.Error().Error()))
-		return nil, token.Error()
-	}
-	return client, nil
 }
