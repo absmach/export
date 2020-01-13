@@ -24,7 +24,7 @@ jobs:
       env:
         SVC: export
       with:
-        name: ivke/export
+        name: mainflux/export
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         buildargs: SVC
