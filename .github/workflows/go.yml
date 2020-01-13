@@ -17,7 +17,7 @@ jobs:
       uses: actions/checkout@v1
 
     - name: Build
-      run: go build -v .
+      run: make
 
     - name: Publish to Registry
       uses: elgohr/Publish-Docker-Github-Action@master
