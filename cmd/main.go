@@ -21,7 +21,6 @@ import (
 	"github.com/mainflux/export/internal/app/export/api"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
-	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
@@ -125,8 +124,8 @@ func loadConfigs() (*config.Config, error) {
 	mc := config.MQTTConf{}
 
 	cfg := config.NewConfig(sc, rc, mc, configFile)
-	err := cfg.ReadFile()
-	if err != nil {
+	readErr := cfg.ReadFile()
+	if readErr != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
 			mqttSkipTLSVer = false
@@ -184,7 +183,7 @@ func loadConfigs() (*config.Config, error) {
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err = loadCertificate(cfg)
+	err := loadCertificate(cfg)
 	if err != nil {
 		return cfg, err
 	}
@@ -192,7 +191,7 @@ func loadConfigs() (*config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.Config) errors.Error {
+func loadCertificate(cfg *config.Config) error {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
@@ -200,28 +199,28 @@ func loadCertificate(cfg *config.Config) errors.Error {
 		caFile, err := os.Open(cfg.MQTT.CAPath)
 		defer caFile.Close()
 		if err != nil {
-			return errors.Wrap(nil, err)
+			return err
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.MQTT.CertPath)
 		defer clientCert.Close()
 		if err != nil {
-			return errors.Wrap(nil, err)
+			return err
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
 		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return errors.Wrap(nil, err)
+			return err
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return errors.Wrap(nil, err)
+			return err
 		}
 
 		cfg.MQTT.Cert = cert
