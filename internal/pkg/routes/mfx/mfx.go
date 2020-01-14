@@ -32,23 +32,37 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.RouteIF {
-	return &mfxRoute{
-		route: routes.Route{
-			NatsTopic: n,
-			MqttTopic: m,
-			Subtopic:  s,
-			Mqtt:      mqtt,
-			Logger:    l,
-		},
+func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
+	return mfxRoute{
+		route: routes.NewRoute(n, m, s, mqtt, l),
 	}
+}
+
+func (mr mfxRoute) NatsTopic() string {
+	return mr.route.NatsTopic()
+}
+
+func (mr mfxRoute) MqttTopic() string {
+	return mr.route.MqttTopic()
+}
+
+func (mr mfxRoute) Subtopic() string {
+	return mr.route.Subtopic()
+}
+
+func (mr mfxRoute) Logger() logger.Logger {
+	return mr.Logger()
+}
+
+func (mr mfxRoute) Mqtt() mqtt.Client {
+	return mr.Mqtt()
 }
 
 func (mr mfxRoute) Consume(m *nats.Msg) {
 	msg := mainflux.Message{}
 	err := proto.Unmarshal(m.Data, &msg)
 	if err != nil {
-		mr.route.Logger.Error(fmt.Sprintf("Failed to unmarshal %s", err.Error()))
+		mr.route.Logger().Error(fmt.Sprintf("Failed to unmarshal %s", err.Error()))
 	}
 	format, ok := formats[msg.ContentType]
 	if !ok {
@@ -57,16 +71,14 @@ func (mr mfxRoute) Consume(m *nats.Msg) {
 
 	raw, err := senml.Decode(msg.Payload, format)
 	if err != nil {
-		mr.route.Logger.Error(fmt.Sprintf("Failed to decode payload message: %s", err))
+		mr.route.Logger().Error(fmt.Sprintf("Failed to decode payload message: %s", err))
 	}
 
 	payload, err := senml.Encode(raw, senml.JSON)
-	mr.route.Publish(payload)
+	mr.Forward(payload)
 	return
 }
 
-func (mr mfxRoute) Publish(bytes []byte) {
-	if token := mr.route.Mqtt.Publish(mr.route.MqttTopic, 0, false, bytes); token.Wait() && token.Error() != nil {
-		mr.route.Logger.Error(fmt.Sprintf("Failed to publish message on topic %s : %s", mr.route.MqttTopic, token.Error()))
-	}
+func (mr mfxRoute) Forward(payload []byte) {
+	mr.route.Forward(payload)
 }
