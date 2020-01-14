@@ -14,7 +14,7 @@ import (
 // Route - message route, tells which nats topic messages goes to which mqtt topic.
 // Later we can add direction and other combination like ( nats-nats).
 // Route is used in mfx and plain. Route is like base implementation and mfx and plain
-// are extended implemntation.
+// are extended implementation.
 type route struct {
 	natsTopic string
 	mqttTopic string
