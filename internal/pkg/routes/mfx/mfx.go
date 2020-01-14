@@ -16,16 +16,16 @@ import (
 )
 
 const (
-	// JSON represents SenML in JSON format content type.
-	JSON = "application/senml+json"
+	// ContentTypeJSON represents SenML in JSON format content type.
+	ContentTypeJSON = "application/senml+json"
 
-	// CBOR represents SenML in CBOR format content type.
-	CBOR = "application/senml+cbor"
+	// ContentTypeCBOR represents SenML in CBOR format content type.
+	ContentTypeCBOR = "application/senml+cbor"
 )
 
 var formats = map[string]senml.Format{
-	JSON: senml.JSON,
-	CBOR: senml.CBOR,
+	ContentTypeJSON: senml.JSON,
+	ContentTypeCBOR: senml.CBOR,
 }
 
 type mfxRoute struct {
