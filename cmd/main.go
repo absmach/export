@@ -102,8 +102,8 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	svc := export.New(nc, client, *cfg, logger)
-	svc.Start(svcName)
+	svc := export.New(client, *cfg, logger)
+	svc.Start(svcName, nc)
 
 	errs := make(chan error, 2)
 	go func() {
