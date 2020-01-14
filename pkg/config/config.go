@@ -24,17 +24,17 @@ var (
 )
 
 type MQTTConf struct {
-	Host        string          `json:"host" mapstructure:"host" toml:"host" mapstructure:"host"`
-	Username    string          `json:"username" mapstructure:"username" toml:"username" mapstructure:"username"`
-	Password    string          `json:"password" mapstructure:"password" toml:"password" mapstructure:"password"`
-	MTLS        bool            `json:"mtls" mapstructure:"mtls" toml:"mtls" mapstructure:"mtls"`
-	SkipTLSVer  bool            `json:"skip_tls_ver" mapstructure:"skip_tls_ver" toml:"skip_tls_ver" mapstructure:"skip_tls_ver"`
-	Retain      bool            `json:"retain" mapstructure:"retain" toml:"retain" mapstructure:"retain"`
-	QoS         int             `json:"qos" mapstructure:"qos" toml:"qos" mapstructure:"qos"`
-	Channel     string          `json:"channel" mapstructure:"channel" toml:"channel" mapstructure:"channel"`
-	CAPath      string          `json:"ca_path" mapstructure:"ca_path" toml:"ca_path" mapstructure:"ca_path"`
-	CertPath    string          `json:"cert_path" mapstructure:"cert_path" toml:"cert_path" mapstructure:"cert_path"`
-	PrivKeyPath string          `json:"priv_key_path" mapstructure:"priv_key_path" toml:"priv_key_path" mapstructure:"priv_key_path"`
+	Host        string          `json:"host" toml:"host"`
+	Username    string          `json:"username" toml:"username"`
+	Password    string          `json:"password" toml:"password"`
+	MTLS        bool            `json:"mtls" toml:"mtls"`
+	SkipTLSVer  bool            `json:"skip_tls_ver" toml:"skip_tls_ver"`
+	Retain      bool            `json:"retain" toml:"retain"`
+	QoS         int             `json:"qos" toml:"qos" mapstructure:"qos"`
+	Channel     string          `json:"channel" toml:"channel"`
+	CAPath      string          `json:"ca_path" toml:"ca_path"`
+	CertPath    string          `json:"cert_path" toml:"cert_path"`
+	PrivKeyPath string          `json:"priv_key_path" toml:"priv_key_path"`
 	CA          []byte          `json:"-" toml:"-"`
 	Cert        tls.Certificate `json:"-" toml:"-"`
 }
@@ -53,10 +53,10 @@ type Config struct {
 }
 
 type Route struct {
-	MqttTopic string `json:"mqtt_topic" mapstructure:"mqtt_topic" toml:"mqtt_topic" mapstructure:"mqtt_topic"`
-	NatsTopic string `json:"nats_topic" mapstructure:"nats_topic" toml:"nats_topic" mapstructure:"nats_topic"`
-	SubTopic  string `json:"subtopic", mapstructure:"subtopic" toml:"subtopic", mapstructure:"subtopic"`
-	Type      string `json:"type", mapstructure:"type" toml:"type", mapstructure:"type"`
+	MqttTopic string `json:"mqtt_topic" toml:"mqtt_topic"`
+	NatsTopic string `json:"nats_topic" toml:"nats_topic"`
+	SubTopic  string `json:"subtopic" toml:"subtopic"`
+	Type      string `json:"type" toml:"type"`
 }
 
 func NewConfig(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
@@ -76,11 +76,11 @@ func (c *Config) Save() errors.Error {
 	if err != nil {
 		return errors.Wrap(errReadConfigFile, err)
 	}
-	file := c.File
-	if file == "" {
-		file = dfltFile
+	file := dfltFile
+	if c.File != "" {
+		file = c.File
 	}
-	if err := ioutil.WriteFile(c.File, b, 0644); err != nil {
+	if err := ioutil.WriteFile(file, b, 0644); err != nil {
 		return errors.Wrap(errWritingConfigFile, err)
 	}
 

@@ -51,11 +51,11 @@ func (mr mfxRoute) Subtopic() string {
 }
 
 func (mr mfxRoute) Logger() logger.Logger {
-	return mr.Logger()
+	return mr.route.Logger()
 }
 
 func (mr mfxRoute) Mqtt() mqtt.Client {
-	return mr.Mqtt()
+	return mr.route.Mqtt()
 }
 
 func (mr mfxRoute) Consume(m *nats.Msg) {
@@ -75,8 +75,11 @@ func (mr mfxRoute) Consume(m *nats.Msg) {
 	}
 
 	payload, err := senml.Encode(raw, senml.JSON)
+	if err != nil {
+		mr.route.Logger().Error(fmt.Sprintf("Failed to encode payload message: %s", err))
+		return
+	}
 	mr.Forward(payload)
-	return
 }
 
 func (mr mfxRoute) Forward(payload []byte) {
