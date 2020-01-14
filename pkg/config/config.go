@@ -40,9 +40,9 @@ type MQTTConf struct {
 }
 
 type ServerConf struct {
-	NatsURL  string `json:"nats" mapstructure:"nats" toml:"nats" mapstructure:"nats"`
-	LogLevel string `json:"log_level" mapstructure:"log_level" toml:"log_level" mapstructure:"log_level"`
-	Port     string `json:"port" mapstructure:"port" toml:"port" mapstructure:"port"`
+	NatsURL  string `json:"nats" toml:"nats"`
+	LogLevel string `json:"log_level" toml:"log_level" "`
+	Port     string `json:"port" toml:"port"`
 }
 
 type Config struct {
