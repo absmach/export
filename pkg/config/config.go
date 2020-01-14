@@ -24,39 +24,39 @@ var (
 )
 
 type MQTTConf struct {
-	Host        string          `json:"host" toml:"host"`
-	Username    string          `json:"username" toml:"username"`
-	Password    string          `json:"password" toml:"password"`
-	MTLS        bool            `json:"mtls" toml:"mtls"`
-	SkipTLSVer  bool            `json:"skip_tls_ver" toml:"skip_tls_ver"`
-	Retain      bool            `json:"retain" toml:"retain"`
+	Host        string          `json:"host" toml:"host" mapstructure:"host"`
+	Username    string          `json:"username" toml:"username" mapstructure:"username"`
+	Password    string          `json:"password" toml:"password" mapstructure:"password"`
+	MTLS        bool            `json:"mtls" toml:"mtls" mapstructure:"mtls"`
+	SkipTLSVer  bool            `json:"skip_tls_ver" toml:"skip_tls_ver" mapstructure:"skip_tls_ver"`
+	Retain      bool            `json:"retain" toml:"retain" mapstructure:"retain"`
 	QoS         int             `json:"qos" toml:"qos" mapstructure:"qos"`
-	Channel     string          `json:"channel" toml:"channel"`
-	CAPath      string          `json:"ca_path" toml:"ca_path"`
-	CertPath    string          `json:"cert_path" toml:"cert_path"`
-	PrivKeyPath string          `json:"priv_key_path" toml:"priv_key_path"`
+	Channel     string          `json:"channel" toml:"channel" mapstructure:"channel"`
+	CAPath      string          `json:"ca_path" toml:"ca_path" mapstructure:"ca_path"`
+	CertPath    string          `json:"cert_path" toml:"cert_path" mapstructure:"cert_path"`
+	PrivKeyPath string          `json:"priv_key_path" toml:"priv_key_path" mapstructure:"priv_key_path"`
 	CA          []byte          `json:"-" toml:"-"`
 	Cert        tls.Certificate `json:"-" toml:"-"`
 }
 
 type ServerConf struct {
-	NatsURL  string `json:"nats" toml:"nats"`
-	LogLevel string `json:"log_level" toml:"log_level" "`
-	Port     string `json:"port" toml:"port"`
+	NatsURL  string `json:"nats" toml:"nats" mapstructure:"nats"`
+	LogLevel string `json:"log_level" toml:"log_level" mapstructure:"log_level"`
+	Port     string `json:"port" toml:"port" mapstructure:"port"`
 }
 
 type Config struct {
-	Server ServerConf `json:"exp" mapstructure:"exp" toml:"exp" mapstructure:"exp"`
-	Routes []Route    `json:"routes" mapstructure:"routes" toml:"routes" mapstructure:"routes"`
-	MQTT   MQTTConf   `json:"mqtt" mapstructure:"mqtt" toml:"mqtt" mapstructure:"mqtt"`
+	Server ServerConf `json:"exp" toml:"exp" mapstructure:"exp"`
+	Routes []Route    `json:"routes" toml:"routes" mapstructure:"routes"`
+	MQTT   MQTTConf   `json:"mqtt" toml:"mqtt" mapstructure:"mqtt"`
 	File   string     `json:"-"`
 }
 
 type Route struct {
-	MqttTopic string `json:"mqtt_topic" toml:"mqtt_topic"`
-	NatsTopic string `json:"nats_topic" toml:"nats_topic"`
-	SubTopic  string `json:"subtopic" toml:"subtopic"`
-	Type      string `json:"type" toml:"type"`
+	MqttTopic string `json:"mqtt_topic" toml:"mqtt_topic" mapstructure:"mqtt_topic"`
+	NatsTopic string `json:"nats_topic" toml:"nats_topic" mapstructure:"nats_topic"`
+	SubTopic  string `json:"subtopic" toml:"subtopic" mapstructure:"subtopic"`
+	Type      string `json:"type" toml:"type" mapstructure:"type"`
 }
 
 func NewConfig(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
