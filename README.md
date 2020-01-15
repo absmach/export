@@ -1,4 +1,4 @@
-# export
+# Export
 Mainflux Export service that sends messages from one Mainflux cloud to another via MQTT
 
 ## Install
@@ -15,13 +15,16 @@ make
 ```
 
 ## Usage
-### Config
-Export configuration is kept in `../configs/config.toml`.
-
 
 ```
-channels = "../docker/channels.toml"
+cd build
+./mainflux-export
+```
 
+### Config
+By default it will look for config file at `../configs/config.toml` if no env vars are specified.  
+
+```
 [exp]
   log_level = "debug"
   nats = "nats://127.0.0.1:4222"
@@ -38,8 +41,18 @@ channels = "../docker/channels.toml"
   retain = "false"
   skip_tls_ver = "false"
   url = "tcp://mainflux.com:1883"
+
+[[routes]]
+  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
+  nats_topic = "*"
+  type = "mfx"
+
+[[routes]]
+  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
+  nats_topic = "*"
+  type = "plain"
 ```
-to run it edit configs/config.toml and change `channel`, `username`,`password` and `url`
+to run it edit configs/config.toml and change `channel`, `username`, `password` and `url`
  * `username` is actually thing id in mainflux cloud instance
  * `password` is thing key
  * `channel` is mqtt topic where to publish mqtt data ( `channel/<channel_id>/messages` is format of mainflux mqtt topic)
@@ -60,10 +73,10 @@ nats section must look like below
   
 ## Environmet variables
 
-Service will look for config.toml first if not found it will  be configured 
-with env variables and new config.toml will be saved with values populated from env vars.
-The service is configured using the environment variables presented in the
-following table. Note that any unset variables will be replaced with their
+Service will look for `config.toml` first and if not found it will be configured   
+with env variables and new `config.toml` will be saved with values populated from env vars.  
+The service is configured using the environment variables presented in the  
+following table. Note that any unset variables will be replaced with their  
 default values.
 
 | Variable                      | Description                                                   | Default               |
@@ -85,4 +98,14 @@ default values.
 
 to change values be sure that there is no config.toml as this is default
 
+## How to save config via agent
 
+```
+mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"config.toml, RmlsZSA9ICIuLi9jb25maWdzL2NvbmZpZy50b21sIgoKW2V4cF0KICBsb2dfbGV2ZWwgPSAiZGVidWciCiAgbmF0cyA9ICJuYXRzOi8vMTI3LjAuMC4xOjQyMjIiCiAgcG9ydCA9ICI4MTcwIgoKW21xdHRdCiAgY2FfcGF0aCA9ICJjYS5jcnQiCiAgY2VydF9wYXRoID0gInRoaW5nLmNydCIKICBjaGFubmVsID0gIiIKICBob3N0ID0gInRjcDovL2xvY2FsaG9zdDoxODgzIgogIG10bHMgPSBmYWxzZQogIHBhc3N3b3JkID0gImFjNmI1N2UwLTliNzAtNDVkNi05NGM4LWU2N2FjOTA4NjE2NSIKICBwcml2X2tleV9wYXRoID0gInRoaW5nLmtleSIKICBxb3MgPSAwCiAgcmV0YWluID0gZmFsc2UKICBza2lwX3Rsc192ZXIgPSBmYWxzZQogIHVzZXJuYW1lID0gIjRhNDM3ZjQ2LWRhN2ItNDQ2OS05NmI3LWJlNzU0YjVlOGQzNiIKCltbcm91dGVzXV0KICBtcXR0X3RvcGljID0gIjRjNjZhNzg1LTE5MDAtNDg0NC04Y2FhLTU2ZmI4Y2ZkNjFlYiIKICBuYXRzX3RvcGljID0gIioiCg==\"}]"
+```
+
+`vs="config_file_path, file_cont_base64"` - vs determines where to save file and contains file content in base64 encoding payload:
+```
+b,_ := toml.Marshal(export.Config)
+payload := base64.StdEncoding.EncodeToString(b)
+```

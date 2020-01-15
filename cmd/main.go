@@ -19,8 +19,7 @@ import (
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
-	"github.com/mainflux/export/internal/pkg/config"
-	exmqtt "github.com/mainflux/export/internal/pkg/mqtt"
+	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -102,16 +101,8 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	repo := exmqtt.New(client, *cfg, logger)
-
-	counter, latency := makeMetrics()
-	repo = api.LoggingMiddleware(repo, logger)
-	repo = api.MetricsMiddleware(repo, counter, latency)
-	svc := export.New(nc, repo, nil, nil, nil, logger)
-	if err := svc.Start(svcName); err != nil {
-		logger.Error(fmt.Sprintf("Failed to start exporte service: %s", err))
-		os.Exit(1)
-	}
+	svc := export.New(client, *cfg, logger)
+	svc.Start(svcName, nc)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -132,9 +123,9 @@ func loadConfigs() (*config.Config, error) {
 	rc := []config.Route{}
 	mc := config.MQTTConf{}
 
-	cfg := config.New(sc, rc, mc, configFile)
-	err := cfg.Read()
-	if err != nil {
+	cfg := config.NewConfig(sc, rc, mc, configFile)
+	readErr := cfg.ReadFile()
+	if readErr != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
 			mqttSkipTLSVer = false
@@ -177,19 +168,22 @@ func loadConfigs() (*config.Config, error) {
 		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
 		natsTopic := "*"
 		rc := []config.Route{{
-			MqttTopic: &mqttTopic,
-			NatsTopic: &natsTopic,
+			MqttTopic: mqttTopic,
+			NatsTopic: natsTopic,
 		}}
-		cfg := config.New(sc, rc, mc, configFile)
+		cfg := config.NewConfig(sc, rc, mc, configFile)
 		err = loadCertificate(cfg)
 		if err != nil {
 			return cfg, err
 		}
-
+		err = cfg.Save()
+		if err != nil {
+			log.Println(fmt.Sprintf("Failed to save %s", err))
+		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err = loadCertificate(cfg)
+	err := loadCertificate(cfg)
 	if err != nil {
 		return cfg, err
 	}
