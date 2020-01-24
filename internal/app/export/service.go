@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/go-redis/redis"
+	"github.com/mainflux/export/internal/pkg/messages"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/export/internal/pkg/routes/mfx"
 	"github.com/mainflux/export/pkg/config"
@@ -15,7 +17,7 @@ import (
 )
 
 type Service interface {
-	Start(queue string, nc *nats.Conn)
+	LoadRoutes(queue string, nc *nats.Conn, cacheClient *redis.Client)
 }
 
 var _ Service = (*exporter)(nil)
@@ -24,37 +26,49 @@ type exporter struct {
 	Mqtt   mqtt.Client
 	Logger log.Logger
 	Cfg    config.Config
-	Routes []routes.Route
+	Routes map[string]routes.Route
+	Cache  messages.Cache
 }
 
 // New create new instance of export service
 func New(mqtt mqtt.Client, c config.Config, logger log.Logger) Service {
-	routes := make([]routes.Route, 0)
+	routes := make(map[string]routes.Route, 0)
 	e := exporter{
 		Mqtt:   mqtt,
 		Logger: logger,
 		Cfg:    c,
 		Routes: routes,
 	}
-
 	return &e
 }
 
-// Start method starts consuming messages received from NATS
-// and makes routes according to the configuration file.
-// Routes export messages to mqtt.
-func (e *exporter) Start(queue string, nc *nats.Conn) {
+// LoadRoutes method loads route configuration
+func (e *exporter) LoadRoutes(queue string) {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
 		switch r.Type {
 		case "mfx":
-			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt)
 		default:
-			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt, e.Logger)
+			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt)
 		}
-		e.Routes = append(e.Routes, route)
-		e.Subscribe(route, queue, nc)
+		e.Routes[route.NatsTopic()] = route
 	}
+}
+
+func (e *exporter) Consume(msg *nats.Msg) {
+	if _, ok := e.Routes[msg.Subject]; !ok {
+		e.Logger.Info(fmt.Sprintf("no configuration for nats topic %s"))
+		return
+	}
+
+	route := e.Routes[msg.Subject]
+	payload, err := route.Consume(msg)
+	if err != nil {
+		e.Logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+	}
+	Cache.Add(msg.Subject, payload)
+
 }
 
 func (e *exporter) Subscribe(r routes.Route, queue string, nc *nats.Conn) {

@@ -17,6 +17,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-redis/redis"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
 	"github.com/mainflux/export/pkg/config"
@@ -44,6 +45,10 @@ const (
 	defMqttPrivKey    = "thing.key"
 	defConfigFile     = "../configs/config.toml"
 
+	defCacheURL  = "localhost:6379"
+	defCachePass = ""
+	defCacheDB   = "0"
+
 	envNatsURL  = "MF_NATS_URL"
 	envLogLevel = "MF_EXPORT_LOG_LEVEL"
 	envPort     = "MF_EXPORT_PORT"
@@ -60,6 +65,10 @@ const (
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
 	envConfigFile     = "MF_EXPORT_CONF_PATH"
+
+	envCacheURL  = "MF_EXPORT_CACHE_URL"
+	envCachePass = "MF_EXPORT_CACHE_PASS"
+	envCacheDB   = "MF_EXPORT_CACHE_DB"
 
 	keyNatsURL        = "exp.nats"
 	keyExportPort     = "exp.port"
@@ -101,8 +110,10 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
+	cacheClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
+
 	svc := export.New(client, *cfg, logger)
-	svc.Start(svcName, nc)
+	svc.Start(svcName, nc, cacheClient)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -146,9 +157,12 @@ func loadConfigs() (*config.Config, error) {
 		QoS := int(q)
 
 		sc := config.ServerConf{
-			NatsURL:  mainflux.Env(envNatsURL, defNatsURL),
-			LogLevel: mainflux.Env(envLogLevel, defLogLevel),
-			Port:     mainflux.Env(envPort, defPort),
+			NatsURL:   mainflux.Env(envNatsURL, defNatsURL),
+			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
+			Port:      mainflux.Env(envPort, defPort),
+			CachePass: mainflux.Env(envCachePass, defCachePass),
+			CacheURL:  mainflux.Env(envCacheURL, defCacheURL),
+			CacheDB:   mainflux.Env(envCacheDB, defCacheDB),
 		}
 
 		mc := config.MQTTConf{
@@ -183,7 +197,7 @@ func loadConfigs() (*config.Config, error) {
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err := loadCertificate(cfg)
+	err := loadCertificate(&cfg.MQTT)
 	if err != nil {
 		return cfg, err
 	}
@@ -191,26 +205,26 @@ func loadConfigs() (*config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.Config) error {
+func loadCertificate(cfg *config.MQTTConf) error {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
-	if cfg.MQTT.MTLS {
-		caFile, err := os.Open(cfg.MQTT.CAPath)
+	if cfg.MTLS {
+		caFile, err := os.Open(cfg.CAPath)
 		defer caFile.Close()
 		if err != nil {
 			return err
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
-		clientCert, err := os.Open(cfg.MQTT.CertPath)
+		clientCert, err := os.Open(cfg.CertPath)
 		defer clientCert.Close()
 		if err != nil {
 			return err
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
-		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
+		privKey, err := os.Open(cfg.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
 			return err
@@ -223,8 +237,8 @@ func loadCertificate(cfg *config.Config) error {
 			return err
 		}
 
-		cfg.MQTT.Cert = cert
-		cfg.MQTT.CA = caByte
+		cfg.Cert = cert
+		cfg.CA = caByte
 
 	}
 	return nil
@@ -302,4 +316,18 @@ func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Cl
 		return nil, token.Error()
 	}
 	return client, nil
+}
+
+func connectToRedis(cacheURL, cachePass string, cacheDB string, logger logger.Logger) *redis.Client {
+	db, err := strconv.Atoi(cacheDB)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to connect to cache: %s", err))
+		os.Exit(1)
+	}
+
+	return redis.NewClient(&redis.Options{
+		Addr:     cacheURL,
+		Password: cachePass,
+		DB:       db,
+	})
 }
