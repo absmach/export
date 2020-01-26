@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/go-redis/redis"
 	"github.com/mainflux/export/internal/pkg/messages"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/export/internal/pkg/routes/mfx"
@@ -17,27 +16,29 @@ import (
 )
 
 type Service interface {
-	LoadRoutes(queue string, nc *nats.Conn, cacheClient *redis.Client)
+	LoadRoutes(queue string)
+	Subscribe(topic string, queue string, nc *nats.Conn)
 }
 
 var _ Service = (*exporter)(nil)
 
 type exporter struct {
-	Mqtt   mqtt.Client
-	Logger log.Logger
-	Cfg    config.Config
-	Routes map[string]routes.Route
-	Cache  messages.Cache
+	Mqtt      mqtt.Client
+	Logger    log.Logger
+	Cfg       config.Config
+	Consumers map[string]routes.Route
+	Cache     messages.Cache
 }
 
 // New create new instance of export service
-func New(mqtt mqtt.Client, c config.Config, logger log.Logger) Service {
-	routes := make(map[string]routes.Route, 0)
+func New(mqtt mqtt.Client, c config.Config, cache messages.Cache, logger log.Logger) Service {
+	nats := make(map[string]routes.Route, 0)
 	e := exporter{
-		Mqtt:   mqtt,
-		Logger: logger,
-		Cfg:    c,
-		Routes: routes,
+		Mqtt:      mqtt,
+		Logger:    logger,
+		Cfg:       c,
+		Consumers: nats,
+		Cache:     cache,
 	}
 	return &e
 }
@@ -52,28 +53,36 @@ func (e *exporter) LoadRoutes(queue string) {
 		default:
 			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt)
 		}
-		e.Routes[route.NatsTopic()] = route
+		e.Consumers[route.NatsTopic()] = route
 	}
 }
 
 func (e *exporter) Consume(msg *nats.Msg) {
-	if _, ok := e.Routes[msg.Subject]; !ok {
-		e.Logger.Info(fmt.Sprintf("no configuration for nats topic %s"))
+	if _, ok := e.Consumers[msg.Subject]; !ok {
+		e.Logger.Info(fmt.Sprintf("no configuration for nats topic %s", msg.Subject))
 		return
 	}
 
-	route := e.Routes[msg.Subject]
+	route := e.Consumers[msg.Subject]
 	payload, err := route.Consume(msg)
 	if err != nil {
 		e.Logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
 	}
-	Cache.Add(msg.Subject, payload)
+	id, err := e.Cache.Add(msg.Subject, payload)
+	if err != nil {
+		e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
+	}
 
+	if token := e.Mqtt.Publish(route.MqttTopic(), 0, false, payload); token.Wait() && token.Error() != nil {
+		e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", route.MqttTopic()))
+		return
+	}
+	e.Cache.Remove(id)
 }
 
-func (e *exporter) Subscribe(r routes.Route, queue string, nc *nats.Conn) {
-	_, err := nc.QueueSubscribe(r.NatsTopic(), fmt.Sprintf("%s-%s", queue, r.NatsTopic()), r.Consume)
+func (e *exporter) Subscribe(topic string, queue string, nc *nats.Conn) {
+	_, err := nc.QueueSubscribe(topic, queue, e.Consume)
 	if err != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to subscribe for NATS/MQTT %s/%s", r.NatsTopic(), r.MqttTopic()))
+		e.Logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", topic))
 	}
 }

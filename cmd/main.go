@@ -20,6 +20,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
+	"github.com/mainflux/export/internal/pkg/messages"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
@@ -69,22 +70,6 @@ const (
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
 	envCacheDB   = "MF_EXPORT_CACHE_DB"
-
-	keyNatsURL        = "exp.nats"
-	keyExportPort     = "exp.port"
-	keyExportLogLevel = "exp.log_level"
-	keyMqttMTls       = "mqtt.mtls"
-	keyMqttSkipTLS    = "mqtt.skip_tls_ver"
-	keyMqttUrl        = "mqtt.url"
-	keyMqttClientCert = "mqtt.cert"
-	keyMqttPrivKey    = "mqtt.priv_key"
-	keyMqttQOS        = "mqtt.qos"
-	keyMqttRetain     = "mqtt.retain"
-	keyMqttCA         = "mqtt.ca"
-	keyMqttPassword   = "mqtt.password"
-	keyMqttUsername   = "mqtt.username"
-	keyMqttChannel    = "mqtt.channel"
-	keyChanCfg        = "channels"
 )
 
 func main() {
@@ -105,15 +90,18 @@ func main() {
 	}
 	defer nc.Close()
 
-	client, err := mqttConnect(svcName, *cfg, logger)
+	mqttClientId := fmt.Sprintf("%s-%s", svcName, cfg.MQTT.Username)
+	client, err := mqttConnect(mqttClientId, *cfg, logger)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	cacheClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
+	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
+	msgCache := messages.NewRedisCache(redisClient)
 
-	svc := export.New(client, *cfg, logger)
-	svc.Start(svcName, nc, cacheClient)
+	svc := export.New(client, *cfg, msgCache, logger)
+	svc.LoadRoutes(svcName)
+	svc.Subscribe(">", "export", nc)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -186,7 +174,7 @@ func loadConfigs() (*config.Config, error) {
 			NatsTopic: natsTopic,
 		}}
 		cfg := config.NewConfig(sc, rc, mc, configFile)
-		err = loadCertificate(cfg)
+		err = loadCertificate(&cfg.MQTT)
 		if err != nil {
 			return cfg, err
 		}

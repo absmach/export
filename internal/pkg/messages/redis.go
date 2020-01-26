@@ -32,7 +32,7 @@ func (cc *cache) Remove(msgID string) error {
 	return cc.client.Del(msgID).Err()
 }
 
-func (cc *cache) add(stream string, m map[string]interface{}) error {
+func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
 
 	record := &redis.XAddArgs{
 		Stream:       stream,
@@ -40,5 +40,5 @@ func (cc *cache) add(stream string, m map[string]interface{}) error {
 		Values:       m,
 	}
 
-	return cc.client.XAdd(record).Err()
+	return cc.client.XAdd(record).Result()
 }
