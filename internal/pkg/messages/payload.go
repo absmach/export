@@ -12,11 +12,13 @@ var (
 )
 
 type msg struct {
+	topic   string
 	payload string
 }
 
 func (m msg) encode() map[string]interface{} {
 	return map[string]interface{}{
+		"topic":   m.topic,
 		"payload": m.payload,
 	}
 }
