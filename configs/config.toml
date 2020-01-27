@@ -3,7 +3,10 @@ File = "config3.toml"
 [exp]
   log_level = "debug"
   nats = "nats://localhost:4222"
-  port = "8170"
+  port = "8172"
+  cache_url = "localhost:6379"
+  cache_pass = ""
+  cache_db = "0"
 
 [mqtt]
   ca_path = "ca.crt"
@@ -11,21 +14,21 @@ File = "config3.toml"
   channel = "cfb02ccf-6703-4603-a042-2271532801f4"
   host = "tcp://84.201.171.65:1883"
   mtls = false
-  password = "4b6bad25-ff42-4da0-80ff-8f29bc93fd55"
+  password = "4d9d79cd-bbce-4aa6-b119-792e5fd16e2e"
   priv_key_path = "thing.key"
   qos = 0
   retain = false
   skip_tls_ver = false
-  username = "d928bb4f-0253-43a8-99eb-2fc3e2066e14"
+  username = "bfa9aa43-4bc7-45ab-8bc0-53d5146dcdde"
 
 [[routes]]
-  mqtt_topic = "channels/7bb022b1-b9af-4360-a611-76d8c2821180/messages"
-  nats_topic = "*"
+  mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
+  nats_topic = "test"
   subtopic = ""
-  type = "mfx"
+  type = "plain"
 
 [[routes]]
-  mqtt_topic = "channels/7bb022b1-b9af-4360-a611-76d8c2821180/messages"
+  mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
   nats_topic = "*"
   subtopic = ""
   type = "plain"
