@@ -4,6 +4,8 @@
 package messages
 
 import (
+	"fmt"
+
 	"github.com/go-redis/redis"
 	"github.com/mainflux/mainflux/errors"
 )
@@ -34,8 +36,8 @@ func (cc *cache) Add(stream, topic string, payload []byte) (string, error) {
 	return cc.add(stream, m)
 }
 
-func (cc *cache) Remove(msgID string) error {
-	return cc.client.Del(msgID).Err()
+func (cc *cache) Remove(stream, msgID string) (int64, error) {
+	return cc.client.XDel(stream, msgID).Result()
 }
 
 func (cc *cache) GroupCreate(stream, group string) (string, error) {
@@ -59,13 +61,31 @@ func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
 	return cc.client.XAdd(record).Result()
 }
 
-func (cc *cache) ReadGroup(streams []string, group, consumer string) ([]redis.XStream, error) {
+func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) ([]interface{}, error) {
 
 	xReadGroupArgs := &redis.XReadGroupArgs{
 		Group:    group,
 		Consumer: consumer,
 		Streams:  streams,
+		Count:    count,
 		Block:    0,
 	}
-	return cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from XRead command
+
+	xStreams, err := cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from XRead command
+
+	// cc.client.XReadGroup(streams, "export-group", consumer)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, xStream := range xStreams { //Get individual xStream
+		//streamName := xStream.Stream
+		for _, xMessage := range xStream.Messages { // Get the message from the xStream
+			for _, v := range xMessage.Values { // Get the values from the message
+				fmt.Println("test:%s", v)
+			}
+
+		}
+	}
+	return nil, err
 }

@@ -5,7 +5,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,7 +14,6 @@ import (
 	"strconv"
 	"syscall"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-redis/redis"
 	"github.com/mainflux/export/internal/app/export"
@@ -90,18 +88,12 @@ func main() {
 	}
 	defer nc.Close()
 
-	mqttClientId := fmt.Sprintf("%s-%s", svcName, cfg.MQTT.Username)
-	client, err := mqttConnect(mqttClientId, *cfg, logger)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
 	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
 	msgCache := messages.NewRedisCache(redisClient)
 
-	svc := export.New(client, *cfg, msgCache, logger)
+	svc := export.New(*cfg, msgCache, logger)
 	svc.LoadRoutes(svcName)
-	svc.Subscribe(">", "export", nc)
+	svc.Subscribe(">", nc)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -254,56 +246,6 @@ func startHTTPService(svc export.Service, port string, logger logger.Logger, err
 	p := fmt.Sprintf(":%s", port)
 	logger.Info(fmt.Sprintf("Export service started, exposed port %s", p))
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
-}
-
-func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
-	conn := func(client mqtt.Client) {
-		logger.Info(fmt.Sprintf("Client %s connected", name))
-	}
-
-	lost := func(client mqtt.Client, err error) {
-		logger.Info(fmt.Sprintf("Client %s disconnected", name))
-	}
-
-	opts := mqtt.NewClientOptions().
-		AddBroker(conf.MQTT.Host).
-		SetClientID(name).
-		SetCleanSession(true).
-		SetAutoReconnect(true).
-		SetOnConnectHandler(conn).
-		SetConnectionLostHandler(lost)
-
-	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {
-		opts.SetUsername(conf.MQTT.Username)
-		opts.SetPassword(conf.MQTT.Password)
-	}
-
-	if conf.MQTT.MTLS {
-		cfg := &tls.Config{
-			InsecureSkipVerify: conf.MQTT.SkipTLSVer,
-		}
-
-		if conf.MQTT.CA != nil {
-			cfg.RootCAs = x509.NewCertPool()
-			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
-		}
-		if conf.MQTT.Cert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
-		}
-
-		cfg.BuildNameToCertificate()
-		opts.SetTLSConfig(cfg)
-		opts.SetProtocolVersion(4)
-	}
-	client := mqtt.NewClient(opts)
-	token := client.Connect()
-	token.Wait()
-
-	if token.Error() != nil {
-		logger.Error(fmt.Sprintf("Client %s had error connecting to the broker: %s\n", name, token.Error().Error()))
-		return nil, token.Error()
-	}
-	return client, nil
 }
 
 func connectToRedis(cacheURL, cachePass string, cacheDB string, logger logger.Logger) *redis.Client {
