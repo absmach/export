@@ -70,9 +70,9 @@ func (e *exporter) LoadRoutes(queue string) {
 	for _, r := range e.Cfg.Routes {
 		switch r.Type {
 		case "mfx":
-			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt)
+			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
 		default:
-			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic, e.Mqtt)
+			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
 		}
 		e.Consumers[route.NatsTopic()] = route
 
@@ -158,12 +158,13 @@ func (e *exporter) publish(topic string, payload []byte) error {
 
 func (e *exporter) conn(client mqtt.Client) {
 	e.publishing <- true
-	e.Logger.Info(fmt.Sprintf("Client %s connected", e.ID))
+	e.Logger.Debug(fmt.Sprintf("Client %s connected", e.ID))
 }
 
 func (e *exporter) lost(client mqtt.Client, err error) {
 	e.disconnected <- true
-	e.Logger.Info(fmt.Sprintf("Client %s disconnected", e.ID))
+	e.Logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
+	fmt.Println("lost")
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {

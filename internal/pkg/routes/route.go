@@ -4,7 +4,6 @@
 package routes
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/mainflux/errors"
 	"github.com/nats-io/nats.go"
 )
@@ -26,24 +25,20 @@ type route struct {
 	natsTopic string
 	mqttTopic string
 	subtopic  string
-	mqtt      mqtt.Client
 }
 
 type Route interface {
 	Consume(m *nats.Msg) ([]byte, error)
-	Forward([]byte) errors.Error
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
-	Mqtt() mqtt.Client
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client) Route {
+func NewRoute(n, m, s string) Route {
 	r := &route{
 		natsTopic: n,
 		mqttTopic: m,
 		subtopic:  s,
-		mqtt:      mqtt,
 	}
 	return r
 }
@@ -60,17 +55,6 @@ func (r *route) Subtopic() string {
 	return r.subtopic
 }
 
-func (r *route) Mqtt() mqtt.Client {
-	return r.mqtt
-}
-
 func (r *route) Consume(m *nats.Msg) ([]byte, error) {
 	return m.Data, nil
-}
-
-func (r *route) Forward(bytes []byte) errors.Error {
-	if token := r.Mqtt().Publish(r.MqttTopic(), 0, false, bytes); token.Wait() && token.Error() != nil {
-		return errPublishFailed
-	}
-	return nil
 }

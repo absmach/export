@@ -4,11 +4,9 @@
 package mfx
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gogo/protobuf/proto"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/mainflux"
-	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/senml"
 	"github.com/nats-io/nats.go"
 )
@@ -30,9 +28,9 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client) routes.Route {
+func NewRoute(n, m, s string) routes.Route {
 	return mfxRoute{
-		route: routes.NewRoute(n, m, s, mqtt),
+		route: routes.NewRoute(n, m, s),
 	}
 }
 
@@ -46,10 +44,6 @@ func (mr mfxRoute) MqttTopic() string {
 
 func (mr mfxRoute) Subtopic() string {
 	return mr.route.Subtopic()
-}
-
-func (mr mfxRoute) Mqtt() mqtt.Client {
-	return mr.route.Mqtt()
 }
 
 func (mr mfxRoute) Consume(m *nats.Msg) ([]byte, error) {
@@ -73,8 +67,4 @@ func (mr mfxRoute) Consume(m *nats.Msg) ([]byte, error) {
 		return []byte{}, err
 	}
 	return payload, nil
-}
-
-func (mr mfxRoute) Forward(payload []byte) errors.Error {
-	return mr.route.Forward(payload)
 }
