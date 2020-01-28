@@ -115,6 +115,7 @@ func (e *exporter) Republish() {
 	}
 	go func() {
 		for {
+			e.Logger.Info("Waiting for disconnect")
 			<-e.disconnected
 			e.Logger.Info("Waiting to get online to republish")
 			<-e.publishing
@@ -155,24 +156,25 @@ func (e *exporter) publish(topic string, payload []byte) error {
 	return nil
 }
 
-func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {
-	conn := func(client mqtt.Client) {
-		e.publishing <- true
-		logger.Info(fmt.Sprintf("Client %s connected", e.ID))
-	}
+func (e *exporter) conn(client mqtt.Client) {
+	e.publishing <- true
+	e.Logger.Info(fmt.Sprintf("Client %s connected", e.ID))
+}
 
-	lost := func(client mqtt.Client, err error) {
-		e.disconnected <- true
-		logger.Info(fmt.Sprintf("Client %s disconnected", e.ID))
-	}
+func (e *exporter) lost(client mqtt.Client, err error) {
+	e.disconnected <- true
+	e.Logger.Info(fmt.Sprintf("Client %s disconnected", e.ID))
+}
+
+func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {
 
 	opts := mqtt.NewClientOptions().
 		AddBroker(conf.MQTT.Host).
 		SetClientID(e.ID).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
-		SetOnConnectHandler(conn).
-		SetConnectionLostHandler(lost)
+		SetOnConnectHandler(e.conn).
+		SetConnectionLostHandler(e.lost)
 
 	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {
 		opts.SetUsername(conf.MQTT.Username)

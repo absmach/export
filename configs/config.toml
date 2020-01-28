@@ -11,8 +11,8 @@ File = "config3.toml"
 [mqtt]
   ca_path = "ca.crt"
   cert_path = "thing.crt"
-  channel = "cfb02ccf-6703-4603-a042-2271532801f4"
-  host = "tcp://84.201.171.65:1883"
+  channel = "0fae507c-7884-4e2c-a8ee-0e538842e1e9"
+  host = "tcp://localhost:1883"
   mtls = false
   password = "4d9d79cd-bbce-4aa6-b119-792e5fd16e2e"
   priv_key_path = "thing.key"
