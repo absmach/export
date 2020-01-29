@@ -8,10 +8,6 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const (
-	filePrefix = "msgid"
-)
-
 var (
 	errBuffering = errors.New("Message buffering will not work")
 )
