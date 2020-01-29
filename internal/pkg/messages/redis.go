@@ -20,6 +20,8 @@ var _ Cache = (*cache)(nil)
 var (
 	errGrpCreateGroupMissing  = errors.New("Group not created, group not being set")
 	errGrpCreateStreamMissing = errors.New("Group not created, stream not being set")
+	errNoStreamData           = errors.New("Empty stream")
+	errOneStreamOnlyRead      = errors.New("One stream read only")
 )
 
 type cache struct {
@@ -32,7 +34,7 @@ func NewRedisCache(client *redis.Client) Cache {
 }
 
 func (cc *cache) Add(stream, topic string, payload []byte) (string, error) {
-	m := msg{topic: topic, payload: string(payload)}.encode()
+	m := Msg{Topic: topic, Payload: string(payload)}.encode()
 	return cc.add(stream, m)
 }
 
@@ -61,8 +63,7 @@ func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
 	return cc.client.XAdd(record).Result()
 }
 
-func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) ([]interface{}, error) {
-
+func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) (map[string]Msg, error) {
 	xReadGroupArgs := &redis.XReadGroupArgs{
 		Group:    group,
 		Consumer: consumer,
@@ -70,22 +71,26 @@ func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer
 		Count:    count,
 		Block:    0,
 	}
-
 	xStreams, err := cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from XRead command
 
 	// cc.client.XReadGroup(streams, "export-group", consumer)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, xStream := range xStreams { //Get individual xStream
-		//streamName := xStream.Stream
-		for _, xMessage := range xStream.Messages { // Get the message from the xStream
-			for _, v := range xMessage.Values { // Get the values from the message
-				fmt.Println("test:%s", v)
-			}
-
-		}
+	result := make(map[string]Msg)
+	if len(xStreams) > 1 {
+		return nil, errOneStreamOnlyRead
 	}
-	return nil, err
+	if len(xStreams) == 0 {
+		return nil, errNoStreamData
+	}
+
+	for _, xMessage := range xStreams[0].Messages { // Get the message from the xStream
+		m := Msg{}
+		m.decode(xMessage.Values)
+		fmt.Println(fmt.Sprintf("topic:%s , payload:%s", m.Topic, m.Payload))
+		result[xMessage.ID] = m
+	}
+
+	return result, nil
 }

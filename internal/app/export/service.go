@@ -6,7 +6,6 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -74,9 +73,12 @@ func (e *exporter) LoadRoutes(queue string) {
 		default:
 			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
 		}
-		e.Consumers[route.NatsTopic()] = route
 
-		e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+		if e.validateTopic(route.NatsTopic()) {
+			e.Consumers[route.NatsTopic()] = route
+			e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+		}
+
 	}
 
 }
@@ -109,36 +111,21 @@ func (e *exporter) Consume(msg *nats.Msg) {
 }
 
 func (e *exporter) Republish() {
-	streams := []string{}
 	for _, route := range e.Cfg.Routes {
-		streams = append(streams, route.NatsTopic)
-	}
-	go func() {
-		for {
-			e.Logger.Info("Waiting for disconnect")
-			<-e.disconnected
-			e.Logger.Info("Waiting to get online to republish")
-			<-e.publishing
-			e.Logger.Info("Start republishing")
+		streams := []string{route.NatsTopic, "$"}
+		go func() {
 			for {
 				msgs, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
 				if err != nil {
 					e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
 				}
 				e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
-
 				for _, m := range msgs {
-					b, _ := json.Marshal(m)
-					fmt.Println(string(b))
-				}
-				// publish
-
-				if len(msgs) < count {
-					break
+					e.publish(m.Topic, []byte(m.Payload))
 				}
 			}
-		}
-	}()
+		}()
+	}
 }
 
 func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
@@ -156,13 +143,15 @@ func (e *exporter) publish(topic string, payload []byte) error {
 	return nil
 }
 
+func (e *exporter) validateTopic(s string) bool {
+	return true
+}
+
 func (e *exporter) conn(client mqtt.Client) {
-	e.publishing <- true
 	e.Logger.Debug(fmt.Sprintf("Client %s connected", e.ID))
 }
 
 func (e *exporter) lost(client mqtt.Client, err error) {
-	e.disconnected <- true
 	e.Logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
 	fmt.Println("lost")
 }

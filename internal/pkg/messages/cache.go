@@ -12,7 +12,7 @@ type Cache interface {
 	Remove(string, string) (int64, error)
 
 	// Read group for redis streams
-	ReadGroup(streams []string, group string, count int64, consumer string) ([]interface{}, error)
+	ReadGroup(streams []string, group string, count int64, consumer string) (map[string]Msg, error)
 
 	// Create redis group for reading streams
 	GroupCreate(stream, group string) (string, error)

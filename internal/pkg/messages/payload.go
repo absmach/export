@@ -3,22 +3,35 @@
 
 package messages
 
+import "errors"
+
 type message interface {
 	encode() map[string]interface{}
 }
 
 var (
-	_ message = (*msg)(nil)
+	_ message = (*Msg)(nil)
+
+	errIncorrectMsgData = errors.New("incorrect message data")
 )
 
-type msg struct {
-	topic   string
-	payload string
+type Msg struct {
+	Topic   string
+	Payload string
 }
 
-func (m msg) encode() map[string]interface{} {
+func (m Msg) encode() map[string]interface{} {
 	return map[string]interface{}{
-		"topic":   m.topic,
-		"payload": m.payload,
+		"topic":   m.Topic,
+		"payload": m.Payload,
 	}
+}
+
+func (m Msg) decode(in map[string]interface{}) error {
+	if len(in) < 2 {
+		return errIncorrectMsgData
+	}
+	m.Topic = in["topic"].(string)
+	m.Payload = in["payload"].(string)
+	return nil
 }
