@@ -28,15 +28,14 @@ type Service interface {
 var _ Service = (*exporter)(nil)
 
 type exporter struct {
-	ID         string
-	Mqtt       mqtt.Client
-	Logger     logger.Logger
-	Cfg        config.Config
-	Consumers  map[string]routes.Route
-	Cache      messages.Cache
-	publishing chan bool
-	connected  chan bool
-	status     uint32
+	ID        string
+	Mqtt      mqtt.Client
+	Logger    logger.Logger
+	Cfg       config.Config
+	Consumers map[string]routes.Route
+	Cache     messages.Cache
+	connected chan bool
+	status    uint32
 	sync.RWMutex
 }
 
@@ -56,13 +55,12 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
 	e := exporter{
-		ID:         id,
-		Logger:     l,
-		Cfg:        c,
-		Consumers:  nats,
-		Cache:      cache,
-		publishing: make(chan bool),
-		connected:  make(chan bool, 1),
+		ID:        id,
+		Logger:    l,
+		Cfg:       c,
+		Consumers: nats,
+		Cache:     cache,
+		connected: make(chan bool, 1),
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
@@ -114,9 +112,9 @@ func (e *exporter) Consume(msg *nats.Msg) {
 }
 
 func (e *exporter) startRepublish() {
-	// inital connection established on start up
+	// initial connection established on start up
 	<-e.connected
-	e.Logger.Info("Starting republisher, waiting for stream data")
+	e.Logger.Info("Starting republish, waiting for stream data")
 	for _, route := range e.Cfg.Routes {
 		streams := []string{route.NatsTopic, ">"}
 		go func() {
@@ -136,7 +134,6 @@ func (e *exporter) startRepublish() {
 						break
 					}
 				}
-
 			}
 		}()
 	}
