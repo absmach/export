@@ -92,7 +92,7 @@ func main() {
 	msgCache := messages.NewRedisCache(redisClient)
 
 	svc := export.New(*cfg, msgCache, logger)
-	svc.LoadRoutes(svcName)
+	svc.Start(svcName)
 	svc.Subscribe(">", nc)
 
 	errs := make(chan error, 2)

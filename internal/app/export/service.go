@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"log"
+	"sync"
+	"sync/atomic"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/messages"
@@ -19,26 +21,33 @@ import (
 )
 
 type Service interface {
-	LoadRoutes(queue string)
+	Start(queue string)
 	Subscribe(topic string, nc *nats.Conn)
 }
 
 var _ Service = (*exporter)(nil)
 
 type exporter struct {
-	ID           string
-	Mqtt         mqtt.Client
-	Logger       logger.Logger
-	Cfg          config.Config
-	Consumers    map[string]routes.Route
-	Cache        messages.Cache
-	publishing   chan bool
-	disconnected chan bool
+	ID         string
+	Mqtt       mqtt.Client
+	Logger     logger.Logger
+	Cfg        config.Config
+	Consumers  map[string]routes.Route
+	Cache      messages.Cache
+	publishing chan bool
+	connected  chan bool
+	status     uint32
+	sync.RWMutex
 }
 
 const (
 	exportGroup = "export-group"
 	count       = 100
+
+	disconnected uint32 = iota
+	connecting
+	reconnecting
+	connected
 )
 
 // New create new instance of export service
@@ -47,13 +56,13 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
 	e := exporter{
-		ID:           id,
-		Logger:       l,
-		Cfg:          c,
-		Consumers:    nats,
-		Cache:        cache,
-		publishing:   make(chan bool),
-		disconnected: make(chan bool),
+		ID:         id,
+		Logger:     l,
+		Cfg:        c,
+		Consumers:  nats,
+		Cache:      cache,
+		publishing: make(chan bool),
+		connected:  make(chan bool, 1),
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
@@ -63,8 +72,8 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	return &e
 }
 
-// LoadRoutes method loads route configuration
-func (e *exporter) LoadRoutes(queue string) {
+// Start method loads route configuration
+func (e *exporter) Start(queue string) {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
 		switch r.Type {
@@ -80,7 +89,7 @@ func (e *exporter) LoadRoutes(queue string) {
 		}
 
 	}
-
+	e.startRepublish()
 }
 
 func (e *exporter) Consume(msg *nats.Msg) {
@@ -94,35 +103,40 @@ func (e *exporter) Consume(msg *nats.Msg) {
 	if err != nil {
 		e.Logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
 	}
-	id, err := e.Cache.Add(msg.Subject, route.MqttTopic(), payload)
-	if err != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
-	}
 
 	if err = e.publish(route.MqttTopic(), payload); err != nil {
+		_, err := e.Cache.Add(msg.Subject, route.MqttTopic(), payload)
+		if err != nil {
+			e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
+		}
 		return
 	}
-
-	i, err := e.Cache.Remove(route.NatsTopic(), id)
-	if err != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to remove %s - %s", id, err.Error()))
-	}
-	e.Logger.Info(fmt.Sprintf("Entry %s removed %d", id, i))
 }
 
-func (e *exporter) Republish() {
+func (e *exporter) startRepublish() {
+	// inital connection established on start up
+	<-e.connected
+	e.Logger.Info("Starting republisher, waiting for stream data")
 	for _, route := range e.Cfg.Routes {
-		streams := []string{route.NatsTopic, "$"}
+		streams := []string{route.NatsTopic, ">"}
 		go func() {
 			for {
-				msgs, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
+				messages, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
 				if err != nil {
 					e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
 				}
-				e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
-				for _, m := range msgs {
-					e.publish(m.Topic, []byte(m.Payload))
+				e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(messages)))
+				e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
+				// wait for connection
+				for {
+					if e.IsConnected() || <-e.connected {
+						for _, m := range messages {
+							e.publish(m.Topic, []byte(m.Payload))
+						}
+						break
+					}
 				}
+
 			}
 		}()
 	}
@@ -136,11 +150,16 @@ func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
 }
 
 func (e *exporter) publish(topic string, payload []byte) error {
-	if token := e.Mqtt.Publish(topic, byte(e.Cfg.MQTT.QoS), e.Cfg.MQTT.Retain, payload); token.Wait() && token.Error() != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
-		return token.Error()
+	if e.connectionStatus() == connected {
+		token := e.Mqtt.Publish(topic, byte(e.Cfg.MQTT.QoS), e.Cfg.MQTT.Retain, payload)
+		if token.Wait() && token.Error() != nil {
+			e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
+			return token.Error()
+		}
+		return nil
 	}
-	return nil
+	e.Logger.Error("not connected to mqtt broker")
+	return mqtt.ErrNotConnected
 }
 
 func (e *exporter) validateTopic(s string) bool {
@@ -148,12 +167,45 @@ func (e *exporter) validateTopic(s string) bool {
 }
 
 func (e *exporter) conn(client mqtt.Client) {
+	e.setConnected(connected)
 	e.Logger.Debug(fmt.Sprintf("Client %s connected", e.ID))
 }
 
 func (e *exporter) lost(client mqtt.Client, err error) {
+	e.setConnected(disconnected)
 	e.Logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
-	fmt.Println("lost")
+}
+
+// IsConnected returns a bool signifying whether
+// the client is connected or not.
+func (e *exporter) IsConnected() bool {
+	e.RLock()
+	defer e.RUnlock()
+	status := atomic.LoadUint32(&e.status)
+	switch {
+	case status == connected:
+		return true
+	default:
+		return false
+	}
+}
+
+func (e *exporter) connectionStatus() uint32 {
+	e.RLock()
+	defer e.RUnlock()
+	status := atomic.LoadUint32(&e.status)
+	return status
+}
+
+func (e *exporter) setConnected(status uint32) {
+	e.Lock()
+	defer e.Unlock()
+	atomic.StoreUint32(&e.status, uint32(status))
+	if status == connected {
+		e.connected <- true
+	} else {
+		e.connected <- false
+	}
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {

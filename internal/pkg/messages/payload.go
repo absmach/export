@@ -20,14 +20,14 @@ type Msg struct {
 	Payload string
 }
 
-func (m Msg) encode() map[string]interface{} {
+func (m *Msg) encode() map[string]interface{} {
 	return map[string]interface{}{
 		"topic":   m.Topic,
 		"payload": m.Payload,
 	}
 }
 
-func (m Msg) decode(in map[string]interface{}) error {
+func (m *Msg) decode(in map[string]interface{}) error {
 	if len(in) < 2 {
 		return errIncorrectMsgData
 	}
