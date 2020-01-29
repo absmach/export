@@ -44,21 +44,19 @@ const (
 	count       = 100
 
 	disconnected uint32 = iota
-	connecting
-	reconnecting
 	connected
 )
 
 // New create new instance of export service
 func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
-	nats := make(map[string]routes.Route, 0)
+	routes := make(map[string]routes.Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
 	e := exporter{
 		ID:        id,
 		Logger:    l,
 		Cfg:       c,
-		Consumers: nats,
+		Consumers: routes,
 		Cache:     cache,
 		connected: make(chan bool, 1),
 	}
@@ -83,7 +81,11 @@ func (e *exporter) Start(queue string) {
 
 		if e.validateTopic(route.NatsTopic()) {
 			e.Consumers[route.NatsTopic()] = route
-			e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+			g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+			if err != nil {
+				e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+			}
+			e.Logger.Info(fmt.Sprintf("Stream group %s created %s", route.NatsTopic(), g))
 		}
 
 	}

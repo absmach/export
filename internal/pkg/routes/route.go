@@ -13,8 +13,7 @@ const (
 )
 
 var (
-	errBuffering     = errors.New("Message buffering will not work")
-	errPublishFailed = errors.New("Failed publishing")
+	errBuffering = errors.New("Message buffering will not work")
 )
 
 // Route - message route, tells which nats topic messages goes to which mqtt topic.

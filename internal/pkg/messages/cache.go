@@ -3,7 +3,7 @@
 
 package messages
 
-// MessageCache contains message  caching interface.
+// Cache contains message  caching interface.
 type Cache interface {
 	// Add message
 	Add(string, string, []byte) (string, error)

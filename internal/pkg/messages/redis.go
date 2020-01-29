@@ -4,14 +4,11 @@
 package messages
 
 import (
-	"fmt"
-
 	"github.com/go-redis/redis"
 	"github.com/mainflux/mainflux/errors"
 )
 
 const (
-	msgPrefix = "prefix"
 	streamLen = 1000
 )
 
@@ -35,7 +32,7 @@ func NewRedisCache(client *redis.Client) Cache {
 
 func (cc *cache) Add(stream, topic string, payload []byte) (string, error) {
 	m := Msg{Topic: topic, Payload: string(payload)}
-	return cc.add(stream, m.encode())
+	return cc.add(stream, m.Encode())
 }
 
 func (cc *cache) Remove(stream, msgID string) (int64, error) {
@@ -87,8 +84,9 @@ func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer
 
 	for _, xMessage := range xStreams[0].Messages { // Get the message from the xStream
 		m := new(Msg)
-		m.decode(xMessage.Values)
-		fmt.Println(fmt.Sprintf("topic:%s , payload:%s", m.Topic, m.Payload))
+		// Deliberately not checking error
+		// avoid interrupting if only few messages are corrupt
+		m.Decode(xMessage.Values)
 		result[xMessage.ID] = *m
 	}
 
