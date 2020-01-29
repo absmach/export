@@ -23,12 +23,7 @@ File = "config3.toml"
 
 [[routes]]
   mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
-  nats_topic = "test"
+  nats_topic = "test.test"
   subtopic = ""
   type = "plain"
 
-[[routes]]
-  mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
-  nats_topic = "*"
-  subtopic = ""
-  type = "plain"

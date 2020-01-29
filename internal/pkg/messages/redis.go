@@ -61,6 +61,25 @@ func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
 	return cc.client.XAdd(record).Result()
 }
 
+func (cc *cache) Read(streams []string, count int64, consumer string) ([]interface{}, error) {
+	xReadArgs := &redis.XReadArgs{
+		Streams: []string{"test.test", "0-0"},
+		Count:   count,
+		Block:   0,
+	}
+	xStreams, err := cc.client.XRead(xReadArgs).Result() //Get Results from XRead command
+	if err != nil {
+		return nil, err
+	}
+	for _, xStream := range xStreams { //Get individual xStream
+		//streamName := xStream.Stream
+		for _, xMessage := range xStream.Messages { // Get the message from the xStream
+
+		}
+	}
+	return nil, err
+}
+
 func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) ([]interface{}, error) {
 
 	xReadGroupArgs := &redis.XReadGroupArgs{
@@ -82,6 +101,7 @@ func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer
 		//streamName := xStream.Stream
 		for _, xMessage := range xStream.Messages { // Get the message from the xStream
 			for _, v := range xMessage.Values { // Get the values from the message
+				// TO DO
 				fmt.Println("test:%s", v)
 			}
 
