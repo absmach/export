@@ -78,16 +78,15 @@ func (e *exporter) Start(queue string) {
 		default:
 			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
 		}
-
-		if e.validateTopic(route.NatsTopic()) {
-			e.Consumers[route.NatsTopic()] = route
-			g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
-			if err != nil {
-				e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
-			}
-			e.Logger.Info(fmt.Sprintf("Stream group %s created %s", route.NatsTopic(), g))
+		if !e.validateTopic(route.NatsTopic()) {
+			continue
 		}
-
+		e.Consumers[route.NatsTopic()] = route
+		g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+		if err != nil {
+			e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+		}
+		e.Logger.Info(fmt.Sprintf("Stream group %s created %s", route.NatsTopic(), g))
 	}
 	e.startRepublish()
 }
@@ -105,6 +104,7 @@ func (e *exporter) Consume(msg *nats.Msg) {
 	}
 
 	if err = e.publish(route.MqttTopic(), payload); err != nil {
+		// If error occurred we will store data to try to republish
 		_, err := e.Cache.Add(msg.Subject, route.MqttTopic(), payload)
 		if err != nil {
 			e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
@@ -114,24 +114,29 @@ func (e *exporter) Consume(msg *nats.Msg) {
 }
 
 func (e *exporter) startRepublish() {
-	// initial connection established on start up
+	// Initial connection established on start up
 	<-e.connected
 	e.Logger.Info("Starting republish, waiting for stream data")
 	for _, route := range e.Cfg.Routes {
 		streams := []string{route.NatsTopic, ">"}
 		go func() {
 			for {
+				// Wait for messages in cache, blocking read
 				messages, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
 				if err != nil {
 					e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
+					continue
 				}
 				e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(messages)))
 				e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
-				// wait for connection
+
 				for {
+					// Wait for connection
 					if e.IsConnected() || <-e.connected {
 						for _, m := range messages {
-							e.publish(m.Topic, []byte(m.Payload))
+							if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
+								e.Logger.Error("Failed to republish message")
+							}
 						}
 						break
 					}
@@ -175,8 +180,7 @@ func (e *exporter) lost(client mqtt.Client, err error) {
 	e.Logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
 }
 
-// IsConnected returns a bool signifying whether
-// the client is connected or not.
+// IsConnected returns a bool signifying whether the client is connected or not.
 func (e *exporter) IsConnected() bool {
 	e.RLock()
 	defer e.RUnlock()
@@ -200,15 +204,15 @@ func (e *exporter) setConnected(status uint32) {
 	e.Lock()
 	defer e.Unlock()
 	atomic.StoreUint32(&e.status, uint32(status))
-	if status == connected {
+	switch status {
+	case connected:
 		e.connected <- true
-	} else {
+	case disconnected:
 		e.connected <- false
 	}
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {
-
 	opts := mqtt.NewClientOptions().
 		AddBroker(conf.MQTT.Host).
 		SetClientID(e.ID).

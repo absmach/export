@@ -7,6 +7,7 @@ package config
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"io/ioutil"
 
 	"github.com/mainflux/mainflux/errors"
@@ -108,9 +109,12 @@ func (c *Config) ReadFile() errors.Error {
 }
 
 // ReadBytes - retrieve config from a byte
-func (c *Config) ReadBytes(data []byte) errors.Error {
-	if err := toml.Unmarshal(data, c); err != nil {
-		return errors.Wrap(errUnmarshalConfigContent, err)
+func (c *Config) ReadBytes(data []byte) (err errors.Error) {
+	if e := toml.Unmarshal(data, c); e != nil {
+		err = errors.Wrap(errUnmarshalConfigContent, e)
+		if e := json.Unmarshal(data, c); e != nil {
+			return errors.Wrap(err, e)
+		}
 	}
 	return nil
 }
