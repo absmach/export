@@ -110,7 +110,7 @@ func ReadFile(file string, c *Config) errors.Error {
 // ReadBytes - read config from a bytes
 func ReadBytes(data []byte, c *Config) errors.Error {
 	e := toml.Unmarshal(data, c)
-	if e != nil {
+	if e == nil {
 		return nil
 	}
 	err := errors.Wrap(errUnmarshalConfigContent, e)
