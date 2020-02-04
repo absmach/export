@@ -107,13 +107,15 @@ func ReadFile(file string, c *Config) errors.Error {
 	return nil
 }
 
-// ReadBytes - retrieve config from a byte
+// ReadBytes - read config from a bytes
 func ReadBytes(data []byte, c *Config) errors.Error {
-	if e := toml.Unmarshal(data, &c); e != nil {
-		err := errors.Wrap(errUnmarshalConfigContent, e)
-		if e := json.Unmarshal(data, &c); e != nil {
-			return errors.Wrap(err, e)
-		}
+	e := toml.Unmarshal(data, c)
+	if e != nil {
+		return nil
+	}
+	err := errors.Wrap(errUnmarshalConfigContent, e)
+	if e := json.Unmarshal(data, c); e != nil {
+		return errors.Wrap(err, e)
 	}
 	return nil
 }
