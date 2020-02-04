@@ -96,11 +96,6 @@ func (c *Config) Save() errors.Error {
 
 // ReadFile - retrieve config from a file
 func ReadFile(file string, c *Config) errors.Error {
-	sc := ServerConf{}
-	rc := []Route{}
-	mc := MQTTConf{}
-	c = NewConfig(sc, rc, mc, file)
-
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return errors.Wrap(errReadConfigFile, err)
