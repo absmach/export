@@ -63,23 +63,9 @@ type Route struct {
 	Type      string `json:"type" toml:"type" mapstructure:"type"`
 }
 
-func NewConfig(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
-	if file == "" {
-		file = dfltFile
-	}
-	ac := Config{
-		Server: sc,
-		Routes: rc,
-		MQTT:   mc,
-		File:   file,
-	}
-
-	return &ac
-}
-
 // Save - store config in a file
-func (c *Config) Save() errors.Error {
-	b, err := toml.Marshal(*c)
+func Save(c Config) errors.Error {
+	b, err := toml.Marshal(c)
 	if err != nil {
 		return errors.Wrap(errReadConfigFile, err)
 	}
@@ -95,27 +81,29 @@ func (c *Config) Save() errors.Error {
 }
 
 // ReadFile - retrieve config from a file
-func ReadFile(file string, c *Config) errors.Error {
+func ReadFile(file string) (Config, errors.Error) {
+	c := Config{}
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		return errors.Wrap(errReadConfigFile, err)
+		return c, errors.Wrap(errReadConfigFile, err)
 	}
-	if err := toml.Unmarshal(data, c); err != nil {
-		return errors.Wrap(errUnmarshalConfigContent, err)
+	if err := toml.Unmarshal(data, &c); err != nil {
+		return c, errors.Wrap(errUnmarshalConfigContent, err)
 	}
 	c.File = file
-	return nil
+	return c, nil
 }
 
 // ReadBytes - read config from a bytes
-func ReadBytes(data []byte, c *Config) errors.Error {
-	e := toml.Unmarshal(data, c)
+func ReadBytes(data []byte) (Config, errors.Error) {
+	c := Config{}
+	e := toml.Unmarshal(data, &c)
 	if e == nil {
-		return nil
+		return c, nil
 	}
 	err := errors.Wrap(errUnmarshalConfigContent, e)
-	if e := json.Unmarshal(data, c); e != nil {
-		return errors.Wrap(err, e)
+	if e := json.Unmarshal(data, &c); e != nil {
+		return c, errors.Wrap(err, e)
 	}
-	return nil
+	return c, nil
 }

@@ -91,7 +91,7 @@ func main() {
 	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
 	msgCache := messages.NewRedisCache(redisClient)
 
-	svc := export.New(*cfg, msgCache, logger)
+	svc := export.New(cfg, msgCache, logger)
 	svc.Start(svcName)
 	svc.Subscribe(">", nc)
 
@@ -108,14 +108,9 @@ func main() {
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
 }
 
-func loadConfigs() (*config.Config, error) {
+func loadConfigs() (config.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
-	sc := config.ServerConf{}
-	rc := []config.Route{}
-	mc := config.MQTTConf{}
-	cfg := config.NewConfig(sc, rc, mc, configFile)
-
-	readErr := config.ReadFile(configFile, cfg)
+	cfg, readErr := config.ReadFile(configFile)
 	if readErr != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
@@ -165,12 +160,18 @@ func loadConfigs() (*config.Config, error) {
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
 		}}
-		cfg := config.NewConfig(sc, rc, mc, configFile)
+
+		cfg := config.Config{
+			Server: sc,
+			Routes: rc,
+			MQTT:   mc,
+			File:   configFile,
+		}
 		err = loadCertificate(&cfg.MQTT)
 		if err != nil {
 			return cfg, err
 		}
-		err = cfg.Save()
+		err = config.Save(cfg)
 		if err != nil {
 			log.Println(fmt.Sprintf("Failed to save %s", err))
 		}
