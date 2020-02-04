@@ -15,10 +15,11 @@ const (
 var _ Cache = (*cache)(nil)
 
 var (
-	errGrpCreateGroupMissing  = errors.New("Group not created, group not being set")
-	errGrpCreateStreamMissing = errors.New("Group not created, stream not being set")
-	errNoStreamData           = errors.New("Empty stream")
-	errOneStreamOnlyRead      = errors.New("One stream read only")
+	ErrGrpCreateGroupMissing  = errors.New("Group not created, group not being set")
+	ErrGrpCreateStreamMissing = errors.New("Group not created, stream not being set")
+	ErrNoStreamData           = errors.New("Empty stream")
+	ErrOneStreamOnlyRead      = errors.New("One stream read only")
+	ErrDecodingData           = errors.New("Failed to decode read data")
 )
 
 type cache struct {
@@ -41,10 +42,10 @@ func (cc *cache) Remove(stream, msgID string) (int64, error) {
 
 func (cc *cache) GroupCreate(stream, group string) (string, error) {
 	if stream == "" {
-		return "", errGrpCreateStreamMissing
+		return "", ErrGrpCreateStreamMissing
 	}
 	if group == "" {
-		return "", errGrpCreateGroupMissing
+		return "", ErrGrpCreateGroupMissing
 	}
 	return cc.client.XGroupCreateMkStream(stream, group, "$").Result()
 }
@@ -60,7 +61,7 @@ func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
 	return cc.client.XAdd(record).Result()
 }
 
-func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) (map[string]Msg, error) {
+func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer string) (map[string]Msg, int64, error) {
 	xReadGroupArgs := &redis.XReadGroupArgs{
 		Group:    group,
 		Consumer: consumer,
@@ -68,27 +69,29 @@ func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer
 		Count:    count,
 		Block:    0,
 	}
-	xStreams, err := cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from XRead command
+	xStreams, err := cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from redis
 
 	// cc.client.XReadGroup(streams, "export-group", consumer)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	result := make(map[string]Msg)
 	if len(xStreams) > 1 {
-		return nil, errOneStreamOnlyRead
+		return nil, 0, ErrOneStreamOnlyRead
 	}
 	if len(xStreams) == 0 {
-		return nil, errNoStreamData
+		return nil, 0, ErrNoStreamData
 	}
-
+	errors := 0
 	for _, xMessage := range xStreams[0].Messages { // Get the message from the xStream
 		m := new(Msg)
-		// Deliberately not checking error
-		// avoid interrupting if only few messages are corrupt
-		m.Decode(xMessage.Values)
+		err := m.Decode(xMessage.Values)
+		if err != nil {
+			errors = errors + 1
+			continue
+		}
 		result[xMessage.ID] = *m
 	}
 
-	return result, nil
+	return result, int64(errors), nil
 }

@@ -29,7 +29,7 @@ var _ Service = (*exporter)(nil)
 
 type exporter struct {
 	ID        string
-	Mqtt      mqtt.Client
+	MQTT      mqtt.Client
 	Logger    logger.Logger
 	Cfg       config.Config
 	Consumers map[string]routes.Route
@@ -64,7 +64,7 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	e.Mqtt = client
+	e.MQTT = client
 	return &e
 }
 
@@ -121,19 +121,15 @@ func (e *exporter) startRepublish() {
 		streams := []string{route.NatsTopic, ">"}
 		go func() {
 			for {
-				// Wait for messages in cache, blocking read
-				messages, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
+				msgs, err := e.readMessages(streams)
 				if err != nil {
-					e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
 					continue
 				}
-				e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(messages)))
 				e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
-
 				for {
 					// Wait for connection
 					if e.IsConnected() || <-e.connected {
-						for _, m := range messages {
+						for _, m := range msgs {
 							if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
 								e.Logger.Error("Failed to republish message")
 							}
@@ -146,6 +142,21 @@ func (e *exporter) startRepublish() {
 	}
 }
 
+func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, error) {
+	// Wait for messages in cache, blocking read
+	msgs, read, err := e.Cache.ReadGroup(streams, exportGroup, count, e.ID)
+
+	switch err {
+	case messages.ErrDecodingData:
+		e.Logger.Error(fmt.Sprintf("Failed to decode all data from stream. Read: %d, Failed: %d, Batch: %d.", len(msgs), read, count))
+	default:
+		e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
+		return nil, err
+	}
+	e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
+	return msgs, nil
+}
+
 func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
 	_, err := nc.QueueSubscribe(topic, e.ID, e.Consume)
 	if err != nil {
@@ -154,16 +165,16 @@ func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
 }
 
 func (e *exporter) publish(topic string, payload []byte) error {
-	if e.connectionStatus() == connected {
-		token := e.Mqtt.Publish(topic, byte(e.Cfg.MQTT.QoS), e.Cfg.MQTT.Retain, payload)
-		if token.Wait() && token.Error() != nil {
-			e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
-			return token.Error()
-		}
-		return nil
+	if e.connectionStatus() != connected {
+		e.Logger.Error("not connected to mqtt broker")
+		return mqtt.ErrNotConnected
 	}
-	e.Logger.Error("not connected to mqtt broker")
-	return mqtt.ErrNotConnected
+	token := e.MQTT.Publish(topic, byte(e.Cfg.MQTT.QoS), e.Cfg.MQTT.Retain, payload)
+	if token.Wait() && token.Error() != nil {
+		e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
+		return token.Error()
+	}
+	return nil
 }
 
 func (e *exporter) validateTopic(s string) bool {

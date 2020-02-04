@@ -4,12 +4,7 @@
 package routes
 
 import (
-	"github.com/mainflux/mainflux/errors"
 	"github.com/nats-io/nats.go"
-)
-
-var (
-	errBuffering = errors.New("Message buffering will not work")
 )
 
 // Route - message route, tells which nats topic messages goes to which mqtt topic.

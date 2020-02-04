@@ -110,12 +110,9 @@ func main() {
 
 func loadConfigs() (*config.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
-	sc := config.ServerConf{}
-	rc := []config.Route{}
-	mc := config.MQTTConf{}
 
-	cfg := config.NewConfig(sc, rc, mc, configFile)
-	readErr := cfg.ReadFile()
+	cfg := &config.Config{}
+	readErr := config.ReadFile(configFile, cfg)
 	if readErr != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {

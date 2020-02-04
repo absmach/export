@@ -64,6 +64,9 @@ type Route struct {
 }
 
 func NewConfig(sc ServerConf, rc []Route, mc MQTTConf, file string) *Config {
+	if file == "" {
+		file = dfltFile
+	}
 	ac := Config{
 		Server: sc,
 		Routes: rc,
@@ -92,11 +95,12 @@ func (c *Config) Save() errors.Error {
 }
 
 // ReadFile - retrieve config from a file
-func (c *Config) ReadFile() errors.Error {
-	file := c.File
-	if file == "" {
-		file = dfltFile
-	}
+func ReadFile(file string, c *Config) errors.Error {
+	sc := ServerConf{}
+	rc := []Route{}
+	mc := MQTTConf{}
+	c = NewConfig(sc, rc, mc, file)
+
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return errors.Wrap(errReadConfigFile, err)
@@ -109,10 +113,10 @@ func (c *Config) ReadFile() errors.Error {
 }
 
 // ReadBytes - retrieve config from a byte
-func (c *Config) ReadBytes(data []byte) (err errors.Error) {
-	if e := toml.Unmarshal(data, c); e != nil {
-		err = errors.Wrap(errUnmarshalConfigContent, e)
-		if e := json.Unmarshal(data, c); e != nil {
+func ReadBytes(data []byte, c *Config) errors.Error {
+	if e := toml.Unmarshal(data, &c); e != nil {
+		err := errors.Wrap(errUnmarshalConfigContent, e)
+		if e := json.Unmarshal(data, &c); e != nil {
 			return errors.Wrap(err, e)
 		}
 	}
