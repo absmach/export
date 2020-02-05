@@ -6,6 +6,7 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -22,7 +23,7 @@ import (
 )
 
 type Service interface {
-	Start(queue string)
+	Start(queue string) error
 	Subscribe(topic string, nc *nats.Conn)
 }
 
@@ -51,6 +52,8 @@ const (
 	NatsAll = ">"
 )
 
+var errNoRoutesConfigured = errors.New("No routes configured")
+
 // New create new instance of export service
 func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	routes := make(map[string]routes.Route)
@@ -73,7 +76,7 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 }
 
 // Start method loads route configuration
-func (e *exporter) Start(queue string) {
+func (e *exporter) Start(queue string) error {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
 		natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
@@ -96,9 +99,13 @@ func (e *exporter) Start(queue string) {
 		}
 
 	}
+	if len(e.Consumers) == 0 {
+		return errNoRoutesConfigured
+	}
 	if e.Cache != nil {
 		go e.startRepublish()
 	}
+	return nil
 }
 
 func (e *exporter) Consume(msg *nats.Msg) {

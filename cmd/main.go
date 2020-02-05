@@ -92,7 +92,9 @@ func main() {
 	msgCache := messages.NewRedisCache(redisClient)
 
 	svc := export.New(cfg, msgCache, logger)
-	svc.Start(svcName)
+	if err := svc.Start(svcName); err != nil {
+		log.Fatalf(fmt.Sprintf("Failed to start service %s", err))
+	}
 	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
 
 	errs := make(chan error, 2)
