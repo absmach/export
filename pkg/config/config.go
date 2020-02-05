@@ -53,7 +53,7 @@ type Config struct {
 	Server ServerConf `json:"exp" toml:"exp" mapstructure:"exp"`
 	Routes []Route    `json:"routes" toml:"routes" mapstructure:"routes"`
 	MQTT   MQTTConf   `json:"mqtt" toml:"mqtt" mapstructure:"mqtt"`
-	File   string     `json:"-"`
+	File   string     `json:"file"`
 }
 
 type Route struct {
