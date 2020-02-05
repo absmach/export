@@ -167,7 +167,8 @@ func loadConfigs() (config.Config, error) {
 			MQTT:   mc,
 			File:   configFile,
 		}
-		err = loadCertificate(&cfg.MQTT)
+		mqtt, err := loadCertificate(cfg.MQTT)
+		cfg.MQTT = mqtt
 		if err != nil {
 			return cfg, err
 		}
@@ -178,7 +179,8 @@ func loadConfigs() (config.Config, error) {
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err := loadCertificate(&cfg.MQTT)
+	mqtt, err := loadCertificate(cfg.MQTT)
+	cfg.MQTT = mqtt
 	if err != nil {
 		return cfg, err
 	}
@@ -186,7 +188,7 @@ func loadConfigs() (config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.MQTTConf) error {
+func loadCertificate(cfg config.MQTTConf) (config.MQTTConf, error) {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
@@ -194,35 +196,35 @@ func loadCertificate(cfg *config.MQTTConf) error {
 		caFile, err := os.Open(cfg.CAPath)
 		defer caFile.Close()
 		if err != nil {
-			return err
+			return cfg, err
 		}
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.CertPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return cfg, err
 		}
 		cc, _ := ioutil.ReadAll(clientCert)
 
 		privKey, err := os.Open(cfg.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return cfg, err
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return err
+			return cfg, err
 		}
 
 		cfg.Cert = cert
 		cfg.CA = caByte
 
 	}
-	return nil
+	return cfg, nil
 }
 
 func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
