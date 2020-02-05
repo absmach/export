@@ -93,7 +93,7 @@ func main() {
 
 	svc := export.New(cfg, msgCache, logger)
 	svc.Start(svcName)
-	svc.Subscribe(">", nc)
+	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -255,7 +255,7 @@ func connectToRedis(cacheURL, cachePass string, cacheDB string, logger logger.Lo
 	db, err := strconv.Atoi(cacheDB)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to connect to cache: %s", err))
-		os.Exit(1)
+		return nil
 	}
 
 	return redis.NewClient(&redis.Options{

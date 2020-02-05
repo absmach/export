@@ -46,6 +46,9 @@ const (
 
 	disconnected uint32 = iota
 	connected
+
+	NatsSub = "export"
+	NatsAll = ">"
 )
 
 // New create new instance of export service
@@ -73,23 +76,29 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 func (e *exporter) Start(queue string) {
 	var route routes.Route
 	for _, r := range e.Cfg.Routes {
+		natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
 		switch r.Type {
 		case "mfx":
-			route = mfx.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
+			route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic)
 		default:
-			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
+			route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic)
 		}
 		if !e.validateSubject(route.NatsTopic()) {
 			continue
 		}
 		e.Consumers[route.NatsTopic()] = route
-		g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
-		if err != nil {
-			e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+		if e.Cache != nil {
+			g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
+			if err != nil {
+				e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+			}
+			e.Logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
 		}
-		e.Logger.Info(fmt.Sprintf("Stream group %s created %s", route.NatsTopic(), g))
+
 	}
-	e.startRepublish()
+	if e.Cache != nil {
+		go e.startRepublish()
+	}
 }
 
 func (e *exporter) Consume(msg *nats.Msg) {
@@ -105,12 +114,14 @@ func (e *exporter) Consume(msg *nats.Msg) {
 	}
 
 	if err = e.publish(route.MqttTopic(), payload); err != nil {
+		if e.Cache == nil {
+			return
+		}
 		// If error occurred we will store data to try to republish
 		_, err := e.Cache.Add(msg.Subject, route.MqttTopic(), payload)
 		if err != nil {
 			e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
 		}
-		return
 	}
 }
 
@@ -225,12 +236,15 @@ func (e *exporter) setConnected(status uint32) {
 	e.Lock()
 	defer e.Unlock()
 	atomic.StoreUint32(&e.status, uint32(status))
-	switch status {
-	case connected:
-		e.connected <- true
-	case disconnected:
-		e.connected <- false
+	if e.Cache != nil {
+		switch status {
+		case connected:
+			e.connected <- true
+		case disconnected:
+			e.connected <- false
+		}
 	}
+
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {

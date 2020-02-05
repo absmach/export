@@ -4,6 +4,8 @@
 package messages
 
 import (
+	"fmt"
+
 	"github.com/go-redis/redis"
 	"github.com/mainflux/mainflux/errors"
 )
@@ -28,10 +30,14 @@ type cache struct {
 
 // NewMessageCache returns redis message cache implementation.
 func NewRedisCache(client *redis.Client) Cache {
-	return &cache{client: client}
+	if client != nil {
+		return &cache{client: client}
+	}
+	return nil
 }
 
 func (cc *cache) Add(stream, topic string, payload []byte) (string, error) {
+	fmt.Println("adding")
 	m := Msg{Topic: topic, Payload: string(payload)}
 	return cc.add(stream, m.Encode())
 }
