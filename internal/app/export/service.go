@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -78,7 +79,7 @@ func (e *exporter) Start(queue string) {
 		default:
 			route = routes.NewRoute(r.NatsTopic, r.MqttTopic, r.SubTopic)
 		}
-		if !e.validateTopic(route.NatsTopic()) {
+		if !e.validateSubject(route.NatsTopic()) {
 			continue
 		}
 		e.Consumers[route.NatsTopic()] = route
@@ -177,7 +178,16 @@ func (e *exporter) publish(topic string, payload []byte) error {
 	return nil
 }
 
-func (e *exporter) validateTopic(s string) bool {
+func (e *exporter) validateSubject(sub string) bool {
+	if strings.ContainsAny(sub, " \t\r\n") {
+		return false
+	}
+	tokens := strings.Split(sub, ".")
+	for _, t := range tokens {
+		if len(t) == 0 {
+			return false
+		}
+	}
 	return true
 }
 
