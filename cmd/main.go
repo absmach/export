@@ -93,7 +93,8 @@ func main() {
 
 	svc := export.New(cfg, msgCache, logger)
 	if err := svc.Start(svcName); err != nil {
-		log.Fatalf(fmt.Sprintf("Failed to start service %s", err))
+		logger.Error(fmt.Sprintf("Failed to start service %s", err))
+		os.Exit(1)
 	}
 	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
 
@@ -174,8 +175,7 @@ func loadConfigs() (config.Config, error) {
 		if err != nil {
 			return cfg, err
 		}
-		err = config.Save(cfg)
-		if err != nil {
+		if err = config.Save(cfg); err != nil {
 			log.Println(fmt.Sprintf("Failed to save %s", err))
 		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
