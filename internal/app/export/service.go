@@ -5,6 +5,7 @@ package export
 
 import (
 	"fmt"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/routes"
@@ -17,6 +18,8 @@ import (
 type Service interface {
 	Start(queue string, nc *nats.Conn)
 }
+
+const heartbeatSubject = "heartbeat"
 
 var _ Service = (*exporter)(nil)
 
@@ -55,6 +58,21 @@ func (e *exporter) Start(queue string, nc *nats.Conn) {
 		e.Routes = append(e.Routes, route)
 		e.Subscribe(route, queue, nc)
 	}
+	go e.heartbeat(nc)
+}
+
+func (e *exporter) heartbeat(nc *nats.Conn) {
+	// Publish heartbeat
+	ticker := time.NewTicker(10000 * time.Millisecond)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
+				nc.Publish(subject, []byte{})
+			}
+		}
+	}()
 }
 
 func (e *exporter) Subscribe(r routes.Route, queue string, nc *nats.Conn) {

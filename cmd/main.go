@@ -265,7 +265,7 @@ func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Cl
 
 	opts := mqtt.NewClientOptions().
 		AddBroker(conf.MQTT.Host).
-		SetClientID(name).
+		SetClientID(fmt.Sprintf("%s-%s", name, conf.MQTT.Username)).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetOnConnectHandler(conn).
