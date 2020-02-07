@@ -11,7 +11,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/messages"
@@ -225,9 +224,8 @@ func (e *exporter) lost(client mqtt.Client, err error) {
 func (e *exporter) IsConnected() bool {
 	e.RLock()
 	defer e.RUnlock()
-	status := atomic.LoadUint32(&e.status)
 	switch {
-	case status == connected:
+	case e.status == connected:
 		return true
 	default:
 		return false
