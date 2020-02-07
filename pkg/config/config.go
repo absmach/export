@@ -24,7 +24,7 @@ var (
 	errUnmarshalConfigContent = errors.New("Error unmarshaling config file conent")
 )
 
-type MQTTConf struct {
+type MQTT struct {
 	Host        string          `json:"host" toml:"host" mapstructure:"host"`
 	Username    string          `json:"username" toml:"username" mapstructure:"username"`
 	Password    string          `json:"password" toml:"password" mapstructure:"password"`
@@ -40,7 +40,7 @@ type MQTTConf struct {
 	Cert        tls.Certificate `json:"-" toml:"-"`
 }
 
-type ServerConf struct {
+type Server struct {
 	NatsURL   string `json:"nats" toml:"nats" mapstructure:"nats"`
 	LogLevel  string `json:"log_level" toml:"log_level" mapstructure:"log_level"`
 	Port      string `json:"port" toml:"port" mapstructure:"port"`
@@ -50,10 +50,10 @@ type ServerConf struct {
 }
 
 type Config struct {
-	Server ServerConf `json:"exp" toml:"exp" mapstructure:"exp"`
-	Routes []Route    `json:"routes" toml:"routes" mapstructure:"routes"`
-	MQTT   MQTTConf   `json:"mqtt" toml:"mqtt" mapstructure:"mqtt"`
-	File   string     `json:"file"`
+	Server Server  `json:"exp" toml:"exp" mapstructure:"exp"`
+	Routes []Route `json:"routes" toml:"routes" mapstructure:"routes"`
+	MQTT   MQTT    `json:"mqtt" toml:"mqtt" mapstructure:"mqtt"`
+	File   string  `json:"file"`
 }
 
 type Route struct {

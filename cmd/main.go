@@ -135,7 +135,7 @@ func loadConfigs() (exp.Config, error) {
 		}
 		QoS := int(q)
 
-		sc := exp.ServerConf{
+		sc := exp.Server{
 			NatsURL:   mainflux.Env(envNatsURL, defNatsURL),
 			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
 			Port:      mainflux.Env(envPort, defPort),
@@ -144,7 +144,7 @@ func loadConfigs() (exp.Config, error) {
 			CacheDB:   mainflux.Env(envCacheDB, defCacheDB),
 		}
 
-		mc := exp.MQTTConf{
+		mc := exp.MQTT{
 			Host:     mainflux.Env(envMqttHost, defMqttHost),
 			Password: mainflux.Env(envMqttPassword, defMqttPassword),
 			Username: mainflux.Env(envMqttUsername, defMqttUsername),
@@ -192,7 +192,7 @@ func loadConfigs() (exp.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg exp.MQTTConf) (exp.MQTTConf, error) {
+func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
