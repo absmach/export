@@ -135,29 +135,31 @@ func (e *exporter) Consume(msg *nats.Msg) {
 func (e *exporter) startRepublish() {
 	// Initial connection established on start up
 	<-e.connected
-	e.Logger.Info("Starting republish, waiting for stream data")
 	for _, route := range e.Cfg.Routes {
-		streams := []string{route.NatsTopic, ">"}
-		go func() {
-			for {
-				msgs, err := e.readMessages(streams)
-				if err != nil {
-					continue
-				}
-				e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
-				for {
-					// Wait for connection
-					if e.IsConnected() || <-e.connected {
-						for _, m := range msgs {
-							if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
-								e.Logger.Error("Failed to republish message")
-							}
-						}
-						break
+		stream := []string{route.NatsTopic, ">"}
+		go e.republish(stream)
+	}
+}
+
+func (e *exporter) republish(stream []string) {
+	for {
+		e.Logger.Info("Republish, waiting for stream data")
+		msgs, err := e.readMessages(stream)
+		if err != nil {
+			continue
+		}
+		e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
+		for {
+			// Wait for connection
+			if e.IsConnected() || <-e.connected {
+				for _, m := range msgs {
+					if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
+						e.Logger.Error("Failed to republish message")
 					}
 				}
+				break
 			}
-		}()
+		}
 	}
 }
 

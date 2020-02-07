@@ -4,8 +4,6 @@
 package messages
 
 import (
-	"fmt"
-
 	"github.com/go-redis/redis"
 	"github.com/mainflux/mainflux/errors"
 )
@@ -37,7 +35,6 @@ func NewRedisCache(client *redis.Client) Cache {
 }
 
 func (cc *cache) Add(stream, topic string, payload []byte) (string, error) {
-	fmt.Println("adding")
 	m := Msg{Topic: topic, Payload: string(payload)}
 	return cc.add(stream, m.Encode())
 }
@@ -47,23 +44,18 @@ func (cc *cache) Remove(stream, msgID string) (int64, error) {
 }
 
 func (cc *cache) GroupCreate(stream, group string) (string, error) {
-	if stream == "" {
+	if stream == "" || group == ""{
 		return "", ErrGrpCreateStreamMissing
-	}
-	if group == "" {
-		return "", ErrGrpCreateGroupMissing
 	}
 	return cc.client.XGroupCreateMkStream(stream, group, "$").Result()
 }
 
 func (cc *cache) add(stream string, m map[string]interface{}) (string, error) {
-
 	record := &redis.XAddArgs{
 		Stream:       stream,
 		MaxLenApprox: streamLen,
 		Values:       m,
 	}
-
 	return cc.client.XAdd(record).Result()
 }
 
@@ -76,8 +68,6 @@ func (cc *cache) ReadGroup(streams []string, group string, count int64, consumer
 		Block:    0,
 	}
 	xStreams, err := cc.client.XReadGroup(xReadGroupArgs).Result() //Get Results from redis
-
-	// cc.client.XReadGroup(streams, "export-group", consumer)
 	if err != nil {
 		return nil, 0, err
 	}

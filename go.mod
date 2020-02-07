@@ -8,7 +8,6 @@ require (
 	github.com/go-redis/redis v6.15.0+incompatible
 	github.com/go-zoo/bone v1.3.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/mainflux/mainflux v0.0.0-20191223163044-f42f2095bab4
 	github.com/mainflux/senml v1.0.0
 	github.com/nats-io/gnatsd v1.4.1

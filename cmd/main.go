@@ -20,6 +20,7 @@ import (
 	"github.com/mainflux/export/internal/app/export/api"
 	"github.com/mainflux/export/internal/pkg/messages"
 	"github.com/mainflux/export/pkg/config"
+	exp "github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -111,7 +112,7 @@ func main() {
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
 }
 
-func loadConfigs() (config.Config, error) {
+func loadConfigs() (exp.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
 	cfg, readErr := config.ReadFile(configFile)
 	if readErr != nil {
@@ -134,7 +135,7 @@ func loadConfigs() (config.Config, error) {
 		}
 		QoS := int(q)
 
-		sc := config.ServerConf{
+		sc := exp.ServerConf{
 			NatsURL:   mainflux.Env(envNatsURL, defNatsURL),
 			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
 			Port:      mainflux.Env(envPort, defPort),
@@ -143,7 +144,7 @@ func loadConfigs() (config.Config, error) {
 			CacheDB:   mainflux.Env(envCacheDB, defCacheDB),
 		}
 
-		mc := config.MQTTConf{
+		mc := exp.MQTTConf{
 			Host:     mainflux.Env(envMqttHost, defMqttHost),
 			Password: mainflux.Env(envMqttPassword, defMqttPassword),
 			Username: mainflux.Env(envMqttUsername, defMqttUsername),
@@ -159,12 +160,12 @@ func loadConfigs() (config.Config, error) {
 		}
 		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
 		natsTopic := "*"
-		rc := []config.Route{{
+		rc := []exp.Route{{
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
 		}}
 
-		cfg := config.Config{
+		cfg := exp.Config{
 			Server: sc,
 			Routes: rc,
 			MQTT:   mc,
@@ -175,7 +176,8 @@ func loadConfigs() (config.Config, error) {
 		if err != nil {
 			return cfg, err
 		}
-		if err = config.Save(cfg); err != nil {
+
+		if err := exp.Save(cfg); err != nil {
 			log.Println(fmt.Sprintf("Failed to save %s", err))
 		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
@@ -190,7 +192,7 @@ func loadConfigs() (config.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg config.MQTTConf) (config.MQTTConf, error) {
+func loadCertificate(cfg exp.MQTTConf) (exp.MQTTConf, error) {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
