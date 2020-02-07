@@ -198,17 +198,17 @@ func loadCertificate(cfg exp.MQTTConf) (exp.MQTTConf, error) {
 	cert := tls.Certificate{}
 	if cfg.MTLS {
 		caFile, err := os.Open(cfg.CAPath)
-		defer caFile.Close()
 		if err != nil {
 			return cfg, err
 		}
+		defer caFile.Close()
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.CertPath)
-		defer clientCert.Close()
 		if err != nil {
 			return cfg, err
 		}
+		defer clientCert.Close()
 		cc, _ := ioutil.ReadAll(clientCert)
 
 		privKey, err := os.Open(cfg.PrivKeyPath)
