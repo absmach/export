@@ -237,16 +237,14 @@ func (e *exporter) IsConnected() bool {
 func (e *exporter) connectionStatus() uint32 {
 	e.RLock()
 	defer e.RUnlock()
-	status := atomic.LoadUint32(&e.status)
-	return status
+	return e.status
 }
 
 func (e *exporter) setConnected(status uint32) {
 	e.Lock()
 	defer e.Unlock()
-	atomic.StoreUint32(&e.status, uint32(status))
 	if e.Cache != nil {
-		switch status {
+		switch e.status {
 		case connected:
 			e.connected <- true
 		case disconnected:
