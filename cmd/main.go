@@ -5,7 +5,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,12 +14,15 @@ import (
 	"strconv"
 	"syscall"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-redis/redis"
 	"github.com/mainflux/export/internal/app/export"
 	"github.com/mainflux/export/internal/app/export/api"
+	"github.com/mainflux/export/internal/pkg/messages"
 	"github.com/mainflux/export/pkg/config"
+	exp "github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
+	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
@@ -44,6 +46,10 @@ const (
 	defMqttPrivKey    = "thing.key"
 	defConfigFile     = "../configs/config.toml"
 
+	defCacheURL  = "localhost:6379"
+	defCachePass = ""
+	defCacheDB   = "0"
+
 	envNatsURL  = "MF_NATS_URL"
 	envLogLevel = "MF_EXPORT_LOG_LEVEL"
 	envPort     = "MF_EXPORT_PORT"
@@ -61,21 +67,9 @@ const (
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
 	envConfigFile     = "MF_EXPORT_CONF_PATH"
 
-	keyNatsURL        = "exp.nats"
-	keyExportPort     = "exp.port"
-	keyExportLogLevel = "exp.log_level"
-	keyMqttMTls       = "mqtt.mtls"
-	keyMqttSkipTLS    = "mqtt.skip_tls_ver"
-	keyMqttUrl        = "mqtt.url"
-	keyMqttClientCert = "mqtt.cert"
-	keyMqttPrivKey    = "mqtt.priv_key"
-	keyMqttQOS        = "mqtt.qos"
-	keyMqttRetain     = "mqtt.retain"
-	keyMqttCA         = "mqtt.ca"
-	keyMqttPassword   = "mqtt.password"
-	keyMqttUsername   = "mqtt.username"
-	keyMqttChannel    = "mqtt.channel"
-	keyChanCfg        = "channels"
+	envCacheURL  = "MF_EXPORT_CACHE_URL"
+	envCachePass = "MF_EXPORT_CACHE_PASS"
+	envCacheDB   = "MF_EXPORT_CACHE_DB"
 )
 
 func main() {
@@ -96,13 +90,15 @@ func main() {
 	}
 	defer nc.Close()
 
-	client, err := mqttConnect(svcName, *cfg, logger)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
+	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
+	msgCache := messages.NewRedisCache(redisClient)
 
-	svc := export.New(client, *cfg, logger)
-	svc.Start(svcName, nc)
+	svc := export.New(cfg, msgCache, logger)
+	if err := svc.Start(svcName); err != nil {
+		logger.Error(fmt.Sprintf("Failed to start service %s", err))
+		os.Exit(1)
+	}
+	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -117,15 +113,10 @@ func main() {
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
 }
 
-func loadConfigs() (*config.Config, error) {
+func loadConfigs() (exp.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
-	sc := config.ServerConf{}
-	rc := []config.Route{}
-	mc := config.MQTTConf{}
-
-	cfg := config.NewConfig(sc, rc, mc, configFile)
-	readErr := cfg.ReadFile()
-	if readErr != nil {
+	cfg, err := config.ReadFile(configFile)
+	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
 			mqttSkipTLSVer = false
@@ -145,13 +136,16 @@ func loadConfigs() (*config.Config, error) {
 		}
 		QoS := int(q)
 
-		sc := config.ServerConf{
-			NatsURL:  mainflux.Env(envNatsURL, defNatsURL),
-			LogLevel: mainflux.Env(envLogLevel, defLogLevel),
-			Port:     mainflux.Env(envPort, defPort),
+		sc := exp.Server{
+			NatsURL:   mainflux.Env(envNatsURL, defNatsURL),
+			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
+			Port:      mainflux.Env(envPort, defPort),
+			CachePass: mainflux.Env(envCachePass, defCachePass),
+			CacheURL:  mainflux.Env(envCacheURL, defCacheURL),
+			CacheDB:   mainflux.Env(envCacheDB, defCacheDB),
 		}
 
-		mc := config.MQTTConf{
+		mc := exp.MQTT{
 			Host:     mainflux.Env(envMqttHost, defMqttHost),
 			Password: mainflux.Env(envMqttPassword, defMqttPassword),
 			Username: mainflux.Env(envMqttUsername, defMqttUsername),
@@ -167,67 +161,75 @@ func loadConfigs() (*config.Config, error) {
 		}
 		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
 		natsTopic := "*"
-		rc := []config.Route{{
+		rc := []exp.Route{{
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
 		}}
-		cfg := config.NewConfig(sc, rc, mc, configFile)
-		err = loadCertificate(cfg)
+
+		cfg := exp.Config{
+			Server: sc,
+			Routes: rc,
+			MQTT:   mc,
+			File:   configFile,
+		}
+		mqtt, err := loadCertificate(cfg.MQTT)
+		cfg.MQTT = mqtt
 		if err != nil {
 			return cfg, err
 		}
-		err = cfg.Save()
-		if err != nil {
+
+		if err := exp.Save(cfg); err != nil {
 			log.Println(fmt.Sprintf("Failed to save %s", err))
 		}
 		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
 		return cfg, nil
 	}
-	err := loadCertificate(cfg)
+	mqtt, err := loadCertificate(cfg.MQTT)
 	if err != nil {
 		return cfg, err
 	}
+	cfg.MQTT = mqtt
 	log.Println(fmt.Sprintf("Configuration loaded from file %s", configFile))
 	return cfg, nil
 }
 
-func loadCertificate(cfg *config.Config) error {
+func loadCertificate(cfg exp.MQTT) (exp.MQTT, errors.Error) {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
-	if cfg.MQTT.MTLS {
-		caFile, err := os.Open(cfg.MQTT.CAPath)
-		defer caFile.Close()
+	if cfg.MTLS {
+		caFile, err := os.Open(cfg.CAPath)
 		if err != nil {
-			return err
+			return cfg, errors.New(err.Error())
 		}
+		defer caFile.Close()
 		caByte, _ = ioutil.ReadAll(caFile)
 
-		clientCert, err := os.Open(cfg.MQTT.CertPath)
-		defer clientCert.Close()
+		clientCert, err := os.Open(cfg.CertPath)
 		if err != nil {
-			return err
+			return cfg, errors.New(err.Error())
 		}
+		defer clientCert.Close()
 		cc, _ := ioutil.ReadAll(clientCert)
 
-		privKey, err := os.Open(cfg.MQTT.PrivKeyPath)
+		privKey, err := os.Open(cfg.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return err
+			return cfg, errors.New(err.Error())
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return err
+			return cfg, errors.New(err.Error())
 		}
 
-		cfg.MQTT.Cert = cert
-		cfg.MQTT.CA = caByte
+		cfg.Cert = cert
+		cfg.CA = caByte
 
 	}
-	return nil
+	return cfg, nil
 }
 
 func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
@@ -254,52 +256,16 @@ func startHTTPService(svc export.Service, port string, logger logger.Logger, err
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
 }
 
-func mqttConnect(name string, conf config.Config, logger logger.Logger) (mqtt.Client, error) {
-	conn := func(client mqtt.Client) {
-		logger.Info(fmt.Sprintf("Client %s connected", name))
+func connectToRedis(cacheURL, cachePass string, cacheDB string, logger logger.Logger) *redis.Client {
+	db, err := strconv.Atoi(cacheDB)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to connect to cache: %s", err))
+		return nil
 	}
 
-	lost := func(client mqtt.Client, err error) {
-		logger.Info(fmt.Sprintf("Client %s disconnected", name))
-	}
-
-	opts := mqtt.NewClientOptions().
-		AddBroker(conf.MQTT.Host).
-		SetClientID(name).
-		SetCleanSession(true).
-		SetAutoReconnect(true).
-		SetOnConnectHandler(conn).
-		SetConnectionLostHandler(lost)
-
-	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {
-		opts.SetUsername(conf.MQTT.Username)
-		opts.SetPassword(conf.MQTT.Password)
-	}
-
-	if conf.MQTT.MTLS {
-		cfg := &tls.Config{
-			InsecureSkipVerify: conf.MQTT.SkipTLSVer,
-		}
-
-		if conf.MQTT.CA != nil {
-			cfg.RootCAs = x509.NewCertPool()
-			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
-		}
-		if conf.MQTT.Cert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
-		}
-
-		cfg.BuildNameToCertificate()
-		opts.SetTLSConfig(cfg)
-		opts.SetProtocolVersion(4)
-	}
-	client := mqtt.NewClient(opts)
-	token := client.Connect()
-	token.Wait()
-
-	if token.Error() != nil {
-		logger.Error(fmt.Sprintf("Client %s had error connecting to the broker: %s\n", name, token.Error().Error()))
-		return nil, token.Error()
-	}
-	return client, nil
+	return redis.NewClient(&redis.Options{
+		Addr:     cacheURL,
+		Password: cachePass,
+		DB:       db,
+	})
 }
