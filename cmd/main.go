@@ -185,10 +185,10 @@ func loadConfigs() (exp.Config, error) {
 		return cfg, nil
 	}
 	mqtt, err := loadCertificate(cfg.MQTT)
-	cfg.MQTT = mqtt
 	if err != nil {
 		return cfg, err
 	}
+	cfg.MQTT = mqtt
 	log.Println(fmt.Sprintf("Configuration loaded from file %s", configFile))
 	return cfg, nil
 }
