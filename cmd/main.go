@@ -22,6 +22,7 @@ import (
 	"github.com/mainflux/export/pkg/config"
 	exp "github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/mainflux"
+	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
@@ -114,8 +115,8 @@ func main() {
 
 func loadConfigs() (exp.Config, error) {
 	configFile := mainflux.Env(envConfigFile, defConfigFile)
-	cfg, readErr := config.ReadFile(configFile)
-	if readErr != nil {
+	cfg, err := config.ReadFile(configFile)
+	if err != nil {
 		mqttSkipTLSVer, err := strconv.ParseBool(mainflux.Env(envMqttSkipTLSVer, defMqttSkipTLSVer))
 		if err != nil {
 			mqttSkipTLSVer = false
@@ -192,21 +193,21 @@ func loadConfigs() (exp.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
+func loadCertificate(cfg exp.MQTT) (exp.MQTT, errors.Error) {
 
 	caByte := []byte{}
 	cert := tls.Certificate{}
 	if cfg.MTLS {
 		caFile, err := os.Open(cfg.CAPath)
 		if err != nil {
-			return cfg, err
+			return cfg, errors.New(err.Error())
 		}
 		defer caFile.Close()
 		caByte, _ = ioutil.ReadAll(caFile)
 
 		clientCert, err := os.Open(cfg.CertPath)
 		if err != nil {
-			return cfg, err
+			return cfg, errors.New(err.Error())
 		}
 		defer clientCert.Close()
 		cc, _ := ioutil.ReadAll(clientCert)
@@ -214,14 +215,14 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 		privKey, err := os.Open(cfg.PrivKeyPath)
 		defer clientCert.Close()
 		if err != nil {
-			return cfg, err
+			return cfg, errors.New(err.Error())
 		}
 
 		pk, _ := ioutil.ReadAll((privKey))
 
 		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
 		if err != nil {
-			return cfg, err
+			return cfg, errors.New(err.Error())
 		}
 
 		cfg.Cert = cert
