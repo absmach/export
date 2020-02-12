@@ -4,13 +4,9 @@
 package mfx
 
 import (
-	"fmt"
-
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gogo/protobuf/proto"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/mainflux"
-	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
 	"github.com/nats-io/nats.go"
 )
@@ -32,9 +28,9 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string, mqtt mqtt.Client, l logger.Logger) routes.Route {
+func NewRoute(n, m, s string) routes.Route {
 	return mfxRoute{
-		route: routes.NewRoute(n, m, s, mqtt, l),
+		route: routes.NewRoute(n, m, s),
 	}
 }
 
@@ -50,19 +46,11 @@ func (mr mfxRoute) Subtopic() string {
 	return mr.route.Subtopic()
 }
 
-func (mr mfxRoute) Logger() logger.Logger {
-	return mr.route.Logger()
-}
-
-func (mr mfxRoute) Mqtt() mqtt.Client {
-	return mr.route.Mqtt()
-}
-
-func (mr mfxRoute) Consume(m *nats.Msg) {
+func (mr mfxRoute) Consume(m *nats.Msg) ([]byte, error) {
 	msg := mainflux.Message{}
 	err := proto.Unmarshal(m.Data, &msg)
 	if err != nil {
-		mr.route.Logger().Error(fmt.Sprintf("Failed to unmarshal %s", err.Error()))
+		return []byte{}, err
 	}
 	format, ok := formats[msg.ContentType]
 	if !ok {
@@ -71,17 +59,12 @@ func (mr mfxRoute) Consume(m *nats.Msg) {
 
 	raw, err := senml.Decode(msg.Payload, format)
 	if err != nil {
-		mr.route.Logger().Error(fmt.Sprintf("Failed to decode payload message: %s", err))
+		return []byte{}, err
 	}
 
 	payload, err := senml.Encode(raw, senml.JSON)
 	if err != nil {
-		mr.route.Logger().Error(fmt.Sprintf("Failed to encode payload message: %s", err))
-		return
+		return []byte{}, err
 	}
-	mr.Forward(payload)
-}
-
-func (mr mfxRoute) Forward(payload []byte) {
-	mr.route.Forward(payload)
+	return payload, nil
 }
