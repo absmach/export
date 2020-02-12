@@ -76,6 +76,7 @@ const (
 )
 
 func main() {
+	done := false
 	cfg, err := loadConfigs()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -91,10 +92,7 @@ func main() {
 		logger.Error(fmt.Sprintf("Failed to connect to NATS: %s %s", err, cfg.Server.NatsURL))
 		os.Exit(1)
 	}
-	defer func() {
-		fmt.Println("closing connection")
-		nc.Close()
-	}()
+	defer nc.Close()
 
 	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
 	msgCache := messages.NewRedisCache(redisClient)
@@ -111,11 +109,9 @@ func main() {
 	go func() {
 		subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
 		for {
-			select {
-			case <-ticker.C:
-				if err := nc.Publish(subject, []byte{}); err != nil {
-					logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
-				}
+			<-ticker.C
+			if err := nc.Publish(subject, []byte{}); err != nil {
+				logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
 			}
 		}
 	}()
@@ -125,12 +121,15 @@ func main() {
 		c := make(chan os.Signal)
 		signal.Notify(c, syscall.SIGINT)
 		errs <- fmt.Errorf("%s", <-c)
+
 	}()
 
 	go startHTTPService(svc, cfg.Server.Port, logger, errs)
 
 	err = <-errs
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
+	done = true
+	time.Sleep(20000 * time.Millisecond)
 }
 
 func loadConfigs() (exp.Config, error) {
