@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-redis/redis"
@@ -70,6 +71,8 @@ const (
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
 	envCacheDB   = "MF_EXPORT_CACHE_DB"
+
+	heartbeatSubject = "heartbeat"
 )
 
 func main() {
@@ -102,6 +105,18 @@ func main() {
 		os.Exit(1)
 	}
 	svc.Subscribe(nc)
+
+	// Publish heartbeat
+	ticker := time.NewTicker(10000 * time.Millisecond)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
+				nc.Publish(subject, []byte{})
+			}
+		}
+	}()
 
 	errs := make(chan error, 2)
 	go func() {
