@@ -76,7 +76,6 @@ const (
 )
 
 func main() {
-	done := false
 	cfg, err := loadConfigs()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -128,8 +127,6 @@ func main() {
 
 	err = <-errs
 	logger.Error(fmt.Sprintf("export writer service terminated: %s", err))
-	done = true
-	time.Sleep(20000 * time.Millisecond)
 }
 
 func loadConfigs() (exp.Config, error) {
