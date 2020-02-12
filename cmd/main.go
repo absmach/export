@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-redis/redis"
@@ -70,6 +71,8 @@ const (
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
 	envCacheDB   = "MF_EXPORT_CACHE_DB"
+
+	heartbeatSubject = "heartbeat"
 )
 
 func main() {
@@ -98,13 +101,25 @@ func main() {
 		logger.Error(fmt.Sprintf("Failed to start service %s", err))
 		os.Exit(1)
 	}
-	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
+	svc.Subscribe(nc)
+
+	// Publish heartbeat
+	ticker := time.NewTicker(10000 * time.Millisecond)
+	go func() {
+		subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
+		for range ticker.C {
+			if err := nc.Publish(subject, []byte{}); err != nil {
+				logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
+			}
+		}
+	}()
 
 	errs := make(chan error, 2)
 	go func() {
 		c := make(chan os.Signal)
 		signal.Notify(c, syscall.SIGINT)
 		errs <- fmt.Errorf("%s", <-c)
+
 	}()
 
 	go startHTTPService(svc, cfg.Server.Port, logger, errs)

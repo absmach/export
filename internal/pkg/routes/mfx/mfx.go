@@ -5,8 +5,10 @@ package mfx
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/mainflux/export/internal/app/export/publish"
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/mainflux"
+	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
 	"github.com/nats-io/nats.go"
 )
@@ -28,9 +30,9 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string) routes.Route {
+func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) routes.Route {
 	return mfxRoute{
-		route: routes.NewRoute(n, m, s),
+		route: routes.NewRoute(n, m, s, log, pub),
 	}
 }
 
@@ -46,9 +48,13 @@ func (mr mfxRoute) Subtopic() string {
 	return mr.route.Subtopic()
 }
 
-func (mr mfxRoute) Consume(m *nats.Msg) ([]byte, error) {
+func (mr mfxRoute) Consume(m *nats.Msg) {
+	mr.route.Consume(m)
+}
+
+func (mr mfxRoute) Process(data []byte) ([]byte, error) {
 	msg := mainflux.Message{}
-	err := proto.Unmarshal(m.Data, &msg)
+	err := proto.Unmarshal(data, &msg)
 	if err != nil {
 		return []byte{}, err
 	}

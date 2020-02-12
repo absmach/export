@@ -4,6 +4,11 @@
 package routes
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/mainflux/export/internal/app/export/publish"
+	"github.com/mainflux/mainflux/logger"
 	"github.com/nats-io/nats.go"
 )
 
@@ -15,36 +20,50 @@ type route struct {
 	natsTopic string
 	mqttTopic string
 	subtopic  string
+	logger    logger.Logger
+	pub       publish.Publisher
 }
 
 type Route interface {
-	Consume(m *nats.Msg) ([]byte, error)
+	Consume(*nats.Msg)
+	Process(data []byte) ([]byte, error)
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
 }
 
-func NewRoute(n, m, s string) Route {
-	r := &route{
+func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
+	r := route{
 		natsTopic: n,
 		mqttTopic: m,
 		subtopic:  s,
+		logger:    log,
+		pub:       pub,
 	}
 	return r
 }
 
-func (r *route) NatsTopic() string {
+func (r route) NatsTopic() string {
 	return r.natsTopic
 }
 
-func (r *route) MqttTopic() string {
+func (r route) MqttTopic() string {
 	return r.mqttTopic
 }
 
-func (r *route) Subtopic() string {
+func (r route) Subtopic() string {
 	return r.subtopic
 }
 
-func (r *route) Consume(m *nats.Msg) ([]byte, error) {
-	return m.Data, nil
+func (r route) Process(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (r route) Consume(msg *nats.Msg) {
+	payload, err := r.Process(msg.Data)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+	}
+	topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
+	r.pub.Publish(msg.Subject, topic, payload)
 }
