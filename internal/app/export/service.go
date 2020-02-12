@@ -24,6 +24,7 @@ import (
 type Service interface {
 	Start(queue string) error
 	Subscribe(topic string, nc *nats.Conn)
+	Logger() logger.Logger
 }
 
 var _ Service = (*exporter)(nil)
@@ -31,10 +32,10 @@ var _ Service = (*exporter)(nil)
 type exporter struct {
 	ID        string
 	MQTT      mqtt.Client
-	Logger    logger.Logger
 	Cfg       config.Config
 	Consumers map[string]routes.Route
 	Cache     messages.Cache
+	logger    logger.Logger
 	connected chan bool
 	status    uint32
 	sync.RWMutex
@@ -60,7 +61,7 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 
 	e := exporter{
 		ID:        id,
-		Logger:    l,
+		logger:    l,
 		Cfg:       c,
 		Consumers: routes,
 		Cache:     cache,
@@ -81,9 +82,9 @@ func (e *exporter) Start(queue string) error {
 		natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
 		switch r.Type {
 		case "mfx":
-			route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic)
+			route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
 		default:
-			route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic)
+			route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
 		}
 		if !e.validateSubject(route.NatsTopic()) {
 			continue
@@ -92,9 +93,9 @@ func (e *exporter) Start(queue string) error {
 		if e.Cache != nil {
 			g, err := e.Cache.GroupCreate(r.NatsTopic, exportGroup)
 			if err != nil {
-				e.Logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+				e.logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
 			}
-			e.Logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
+			e.logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
 		}
 
 	}
@@ -107,28 +108,23 @@ func (e *exporter) Start(queue string) error {
 	return nil
 }
 
-func (e *exporter) Consume(msg *nats.Msg) {
-	if _, ok := e.Consumers[msg.Subject]; !ok {
-		e.Logger.Info(fmt.Sprintf("no configuration for nats topic %s", msg.Subject))
+func (e *exporter) Publish(subject, topic string, payload []byte) {
+	if err := e.publish(topic, payload); err == nil {
 		return
 	}
 
-	route := e.Consumers[msg.Subject]
-	payload, err := route.Consume(msg)
+	if e.Cache == nil {
+		return
+	}
+	// If error occurred we will store data to try to republish
+	_, err := e.Cache.Add(subject, topic, payload)
 	if err != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+		e.logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
 	}
+}
 
-	if err = e.publish(route.MqttTopic(), payload); err != nil {
-		if e.Cache == nil {
-			return
-		}
-		// If error occurred we will store data to try to republish
-		_, err := e.Cache.Add(msg.Subject, route.MqttTopic(), payload)
-		if err != nil {
-			e.Logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", msg.Subject))
-		}
-	}
+func (e *exporter) Logger() logger.Logger {
+	return e.logger
 }
 
 func (e *exporter) startRepublish() {
@@ -142,18 +138,18 @@ func (e *exporter) startRepublish() {
 
 func (e *exporter) republish(stream []string) {
 	for {
-		e.Logger.Info("Republish, waiting for stream data")
+		e.logger.Info("Republish, waiting for stream data")
 		msgs, err := e.readMessages(stream)
 		if err != nil {
 			continue
 		}
-		e.Logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
+		e.logger.Info(fmt.Sprintf("Waiting for connection to %s", e.Cfg.MQTT.Host))
 		for {
 			// Wait for connection
 			if e.IsConnected() || <-e.connected {
 				for _, m := range msgs {
 					if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
-						e.Logger.Error("Failed to republish message")
+						e.logger.Error("Failed to republish message")
 					}
 				}
 				break
@@ -168,30 +164,32 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 	switch err {
 	case messages.ErrDecodingData:
-		e.Logger.Error(fmt.Sprintf("Failed to decode all data from stream. Read: %d, Failed: %d, Batch: %d.", len(msgs), read, count))
+		e.logger.Error(fmt.Sprintf("Failed to decode all data from stream. Read: %d, Failed: %d, Batch: %d.", len(msgs), read, count))
 	default:
-		e.Logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
+		e.logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
 		return nil, err
 	}
-	e.Logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
+	e.logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
 	return msgs, nil
 }
 
 func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
-	_, err := nc.QueueSubscribe(topic, e.ID, e.Consume)
-	if err != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", topic))
+	for _, r := range e.Consumers {
+		_, err := nc.QueueSubscribe(topic, e.ID, r.Consume)
+		if err != nil {
+			e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", topic))
+		}
 	}
 }
 
 func (e *exporter) publish(topic string, payload []byte) error {
 	if e.connectionStatus() != connected {
-		e.Logger.Error("not connected to mqtt broker")
+		e.logger.Error("not connected to mqtt broker")
 		return mqtt.ErrNotConnected
 	}
 	token := e.MQTT.Publish(topic, byte(e.Cfg.MQTT.QoS), e.Cfg.MQTT.Retain, payload)
 	if token.Wait() && token.Error() != nil {
-		e.Logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
+		e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
 		return token.Error()
 	}
 	return nil
@@ -212,12 +210,12 @@ func (e *exporter) validateSubject(sub string) bool {
 
 func (e *exporter) conn(client mqtt.Client) {
 	e.setConnected(connected)
-	e.Logger.Debug(fmt.Sprintf("Client %s connected", e.ID))
+	e.logger.Debug(fmt.Sprintf("Client %s connected", e.ID))
 }
 
 func (e *exporter) lost(client mqtt.Client, err error) {
 	e.setConnected(disconnected)
-	e.Logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
+	e.logger.Debug(fmt.Sprintf("Client %s disconnected", e.ID))
 }
 
 // IsConnected returns a bool signifying whether the client is connected or not.
@@ -249,7 +247,6 @@ func (e *exporter) setConnected(status uint32) {
 			e.connected <- false
 		}
 	}
-
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {

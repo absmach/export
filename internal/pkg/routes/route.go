@@ -4,6 +4,10 @@
 package routes
 
 import (
+	"fmt"
+
+	"github.com/mainflux/export/internal/app/export/publish"
+	"github.com/mainflux/mainflux/logger"
 	"github.com/nats-io/nats.go"
 )
 
@@ -15,20 +19,26 @@ type route struct {
 	natsTopic string
 	mqttTopic string
 	subtopic  string
+	publisher publish.Publisher
+	logger    logger.Logger
+	pub       publish.Publisher
 }
 
 type Route interface {
-	Consume(m *nats.Msg) ([]byte, error)
+	Consume(*nats.Msg)
+	Process(data []byte) ([]byte, error)
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
 }
 
-func NewRoute(n, m, s string) Route {
+func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
 	r := &route{
 		natsTopic: n,
 		mqttTopic: m,
 		subtopic:  s,
+		logger:    log,
+		pub:       pub,
 	}
 	return r
 }
@@ -45,6 +55,14 @@ func (r *route) Subtopic() string {
 	return r.subtopic
 }
 
-func (r *route) Consume(m *nats.Msg) ([]byte, error) {
-	return m.Data, nil
+func (r *route) Process(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (r *route) Consume(msg *nats.Msg) {
+	payload, err := r.Process(msg.Data)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+	}
+	r.pub.Publish(msg.Subject, r.MqttTopic(), payload)
 }
