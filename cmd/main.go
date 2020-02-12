@@ -88,7 +88,10 @@ func main() {
 		logger.Error(fmt.Sprintf("Failed to connect to NATS: %s %s", err, cfg.Server.NatsURL))
 		os.Exit(1)
 	}
-	defer nc.Close()
+	defer func() {
+		fmt.Println("closing connection")
+		nc.Close()
+	}()
 
 	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
 	msgCache := messages.NewRedisCache(redisClient)
@@ -98,7 +101,7 @@ func main() {
 		logger.Error(fmt.Sprintf("Failed to start service %s", err))
 		os.Exit(1)
 	}
-	svc.Subscribe(fmt.Sprintf("%s.%s", export.NatsSub, export.NatsAll), nc)
+	svc.Subscribe(nc)
 
 	errs := make(chan error, 2)
 	go func() {

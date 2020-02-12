@@ -23,8 +23,9 @@ import (
 
 type Service interface {
 	Start(queue string) error
-	Subscribe(topic string, nc *nats.Conn)
+	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
+	Publish(subject, topic string, payload []byte)
 }
 
 var _ Service = (*exporter)(nil)
@@ -35,6 +36,7 @@ type exporter struct {
 	Cfg       config.Config
 	Consumers map[string]routes.Route
 	Cache     messages.Cache
+	nc        *nats.Conn
 	logger    logger.Logger
 	connected chan bool
 	status    uint32
@@ -109,14 +111,15 @@ func (e *exporter) Start(queue string) error {
 }
 
 func (e *exporter) Publish(subject, topic string, payload []byte) {
+	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
 	if err := e.publish(topic, payload); err == nil {
 		return
 	}
-
 	if e.Cache == nil {
 		return
 	}
-	// If error occurred we will store data to try to republish
+	// If error occurred and cache is being used
+	// we will store data to try to republish later
 	_, err := e.Cache.Add(subject, topic, payload)
 	if err != nil {
 		e.logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
@@ -173,12 +176,14 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 	return msgs, nil
 }
 
-func (e *exporter) Subscribe(topic string, nc *nats.Conn) {
+func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.Consumers {
-		_, err := nc.QueueSubscribe(topic, e.ID, r.Consume)
-		if err != nil {
-			e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", topic))
+		_, err := nc.QueueSubscribe(r.NatsTopic(), e.ID, r.Consume)
+		if err == nil {
+			e.logger.Info(fmt.Sprintf("Subscribed to NATS %s", r.NatsTopic()))
+			continue
 		}
+		e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", r.NatsTopic()))
 	}
 }
 
@@ -239,6 +244,7 @@ func (e *exporter) connectionStatus() uint32 {
 func (e *exporter) setConnected(status uint32) {
 	e.Lock()
 	defer e.Unlock()
+	e.status = status
 	if e.Cache != nil {
 		switch e.status {
 		case connected:
