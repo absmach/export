@@ -1,0 +1,31 @@
+File = "config3.toml"
+
+[exp]
+  log_level = "debug"
+  nats = "nats://localhost:4222"
+  port = "8172"
+
+[mqtt]
+  ca_path = "ca.crt"
+  cert_path = "thing.crt"
+  channel = "b2076bde-b583-4ce2-9862-ac3f51f2db8a"
+  host = "tcp://localhost:1883"
+  mtls = false
+  password = "33dadc31-d136-4d5c-b944-2aecb45b51ce"
+  priv_key_path = "thing.key"
+  qos = 0
+  retain = false
+  skip_tls_ver = false
+  username = "842fa704-c435-4254-85a8-5be433cd3cad"
+
+[[routes]]
+  mqtt_topic = "channels/b2076bde-b583-4ce2-9862-ac3f51f2db8a/messages"
+  nats_topic = "export.export.adc.samples"
+  subtopic = ""
+  type = "plain"
+
+[[routes]]
+  mqtt_topic = "channels/b2076bde-b583-4ce2-9862-ac3f51f2db8a/messages"
+  nats_topic = "export.telegraf"
+  subtopic = ""
+  type = "plain"
