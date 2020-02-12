@@ -107,7 +107,7 @@ func main() {
 	ticker := time.NewTicker(10000 * time.Millisecond)
 	go func() {
 		subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
-		for _ = range ticker.C {
+		for range ticker.C {
 			if err := nc.Publish(subject, []byte{}); err != nil {
 				logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
 			}
