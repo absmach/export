@@ -20,7 +20,6 @@ type route struct {
 	natsTopic string
 	mqttTopic string
 	subtopic  string
-	publisher publish.Publisher
 	logger    logger.Logger
 	pub       publish.Publisher
 }

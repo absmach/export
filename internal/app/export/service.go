@@ -36,7 +36,6 @@ type exporter struct {
 	cfg       config.Config
 	consumers map[string]routes.Route
 	cache     messages.Cache
-	nc        *nats.Conn
 	logger    logger.Logger
 	connected chan bool
 	status    uint32
