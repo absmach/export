@@ -119,6 +119,7 @@ github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mainflux/mainflux v0.0.0-20191223163044-f42f2095bab4 h1:c9pwERpfm4MGNnLCHP2tIKHU6QTNubwUg3Bh74INZvw=
 github.com/mainflux/mainflux v0.0.0-20191223163044-f42f2095bab4/go.mod h1:K3ghSIpAqwv5F/t30LO57+11S7tE97ur2Z6wWEHa2CA=
+github.com/mainflux/mainflux v0.0.0-20200207161337-1c2c86b0309c h1:bbwC6xZmYSkSO1dtdFQikhL0SYY2cC9x7/uaAxKVrVc=
 github.com/mainflux/senml v1.0.0 h1:oLS5aBhvdHjgQ8kfq3jX7yD+DaquhvpyvIWNsPil3X0=
 github.com/mainflux/senml v1.0.0/go.mod h1:g9i8pj4WMs29KkUpXivbe/PP0qJd1kt3b1CF77S8A3s=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
