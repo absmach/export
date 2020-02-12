@@ -109,11 +109,13 @@ func main() {
 	// Publish heartbeat
 	ticker := time.NewTicker(10000 * time.Millisecond)
 	go func() {
+		subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
 		for {
 			select {
 			case <-ticker.C:
-				subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
-				nc.Publish(subject, []byte{})
+				if err := nc.Publish(subject, []byte{}); err != nil {
+					logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
+				}
 			}
 		}
 	}()
