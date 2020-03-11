@@ -111,10 +111,12 @@ func (e *exporter) Start(queue string) error {
 
 func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
 	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
-	if err := e.publish(topic, payload); err == nil {
-		return nil
-	} else {
+	err := e.publish(topic, payload)
+	if err != nil {
 		e.logger.Error(err.Error())
+	}
+	if err == nil {
+		return nil
 	}
 
 	if e.cache == nil {
