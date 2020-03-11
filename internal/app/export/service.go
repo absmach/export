@@ -113,7 +113,10 @@ func (e *exporter) Publish(subject, topic string, payload []byte) {
 	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
 	if err := e.publish(topic, payload); err == nil {
 		return
+	} else {
+		e.logger.Error(err.Error())
 	}
+
 	if e.cache == nil {
 		return
 	}
