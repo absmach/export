@@ -125,7 +125,7 @@ func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
 	}
 	// If error occurred and cache is being used
 	// we will store data to try to republish later
-	_, err := e.cache.Add(subject, topic, payload)
+	_, err = e.cache.Add(subject, topic, payload)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
 	}
