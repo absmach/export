@@ -10,6 +10,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/messages"
@@ -19,6 +20,10 @@ import (
 	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
+)
+
+var (
+	errNoCacheConfigured = errors.New("No cache configured")
 )
 
 type Service interface {
@@ -110,24 +115,16 @@ func (e *exporter) Start(queue string) error {
 }
 
 func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
-	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
-	err := e.publish(topic, payload)
-	if err != nil {
-		e.logger.Error(err.Error())
-	}
-	if err == nil {
-		return nil
-	}
-
-	if e.cache == nil {
-		e.logger.Warn("No cache configured")
-		return nil
-	}
-	// If error occurred and cache is being used
-	// we will store data to try to republish later
-	_, err = e.cache.Add(subject, topic, payload)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
+	if err := e.publish(topic, payload); err != nil {
+		if e.cache == nil {
+			return errors.Wrap(errNoCacheConfigured, err)
+		}
+		// If error occurred and cache is being used
+		// we will store data to try to republish later
+		_, err = e.cache.Add(subject, topic, payload)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
+		}
 	}
 	return nil
 }
@@ -184,12 +181,9 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		_, err := nc.QueueSubscribe(r.NatsTopic(), e.id, r.Consume)
-		if err == nil {
-			e.logger.Info(fmt.Sprintf("Subscribed to NATS %s", r.NatsTopic()))
-			continue
+		if err := r.Subscribe(nc); err != nil {
+			e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", r.NatsTopic()))
 		}
-		e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", r.NatsTopic()))
 	}
 }
 
@@ -199,7 +193,7 @@ func (e *exporter) publish(topic string, payload []byte) error {
 		return mqtt.ErrNotConnected
 	}
 	token := e.mqtt.Publish(topic, byte(e.cfg.MQTT.QoS), e.cfg.MQTT.Retain, payload)
-	if token.Wait() && token.Error() != nil {
+	if token.WaitTimeout(1*time.Second) && token.Error() != nil {
 		e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
 		return token.Error()
 	}

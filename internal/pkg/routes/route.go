@@ -22,7 +22,14 @@ type route struct {
 	subtopic  string
 	logger    logger.Logger
 	pub       publish.Publisher
+	workers   int
+	messages  chan *nats.Msg
+	sub       *nats.Subscription
 }
+
+var (
+	workers = 10
+)
 
 type Route interface {
 	Consume(*nats.Msg)
@@ -30,6 +37,8 @@ type Route interface {
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
+	Subscribe(nc *nats.Conn) error
+	Clean()
 }
 
 func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
@@ -39,35 +48,55 @@ func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
 		subtopic:  s,
 		logger:    log,
 		pub:       pub,
+		messages:  make(chan *nats.Msg, workers),
 	}
-	return r
+	return &r
 }
 
-func (r route) NatsTopic() string {
+func (r *route) NatsTopic() string {
 	return r.natsTopic
 }
 
-func (r route) MqttTopic() string {
+func (r *route) MqttTopic() string {
 	return r.mqttTopic
 }
 
-func (r route) Subtopic() string {
+func (r *route) Subtopic() string {
 	return r.subtopic
 }
 
-func (r route) Process(data []byte) ([]byte, error) {
+func (r *route) Process(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (r route) Consume(msg *nats.Msg) {
+func (r *route) Consume(msg *nats.Msg) {
+	payload, err := r.Process(msg.Data)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
+	}
+	topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
+	if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err.Error()))
+	}
+	r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
+}
+
+func (r *route) Subscribe(nc *nats.Conn) error {
+	sub, err := nc.ChanSubscribe(r.NatsTopic(), r.messages)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Failed to subscribe to check results channel: %s", err))
+		return err
+	}
+	r.sub = sub
 	go func() {
-		payload, err := r.Process(msg.Data)
-		if err != nil {
-			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
-		}
-		topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
-		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
-			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err.Error()))
+		for msg := range r.messages {
+			go r.Consume(msg)
 		}
 	}()
+	return nil
+}
+
+func (r *route) Clean() {
+	r.sub.Unsubscribe()
+	close(r.messages)
 }
