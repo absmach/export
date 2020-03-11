@@ -60,10 +60,12 @@ func (r route) Process(data []byte) ([]byte, error) {
 }
 
 func (r route) Consume(msg *nats.Msg) {
-	payload, err := r.Process(msg.Data)
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
-	}
-	topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
-	r.pub.Publish(msg.Subject, topic, payload)
+	go func() {
+		payload, err := r.Process(msg.Data)
+		if err != nil {
+			r.logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+		}
+		topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
+		r.pub.Publish(msg.Subject, topic, payload)
+	}()
 }
