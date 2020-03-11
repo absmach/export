@@ -6,7 +6,6 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/export/internal/pkg/routes/mfx"
 	"github.com/mainflux/export/pkg/config"
+	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
 )
@@ -25,7 +25,7 @@ type Service interface {
 	Start(queue string) error
 	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
-	Publish(subject, topic string, payload []byte)
+	Publish(subject, topic string, payload []byte) errors.Error
 }
 
 var _ Service = (*exporter)(nil)
@@ -109,23 +109,25 @@ func (e *exporter) Start(queue string) error {
 	return nil
 }
 
-func (e *exporter) Publish(subject, topic string, payload []byte) {
+func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
 	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
 	if err := e.publish(topic, payload); err == nil {
-		return
+		return nil
 	} else {
 		e.logger.Error(err.Error())
 	}
 
 	if e.cache == nil {
-		return
+		e.logger.Warn("No cache configured")
+		return nil
 	}
 	// If error occurred and cache is being used
 	// we will store data to try to republish later
 	_, err := e.cache.Add(subject, topic, payload)
 	if err != nil {
-		e.logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
+		return errors.New(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
 	}
+	return nil
 }
 
 func (e *exporter) Logger() logger.Logger {
