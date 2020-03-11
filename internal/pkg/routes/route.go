@@ -63,7 +63,7 @@ func (r route) Consume(msg *nats.Msg) {
 	go func() {
 		payload, err := r.Process(msg.Data)
 		if err != nil {
-			r.logger.Error(fmt.Sprintf("Failed to consume msg %s", err.Error()))
+			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
 		}
 		topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
 		r.pub.Publish(msg.Subject, topic, payload)
