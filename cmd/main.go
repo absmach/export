@@ -96,7 +96,11 @@ func main() {
 	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
 	msgCache := messages.NewRedisCache(redisClient)
 
-	svc := export.New(cfg, msgCache, logger)
+	svc, err := export.New(cfg, msgCache, logger)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to create service :%s", err))
+		os.Exit(1)
+	}
 	if err := svc.Start(svcName); err != nil {
 		logger.Error(fmt.Sprintf("Failed to start service %s", err))
 		os.Exit(1)

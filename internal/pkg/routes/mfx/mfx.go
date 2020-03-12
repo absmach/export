@@ -31,28 +31,28 @@ type mfxRoute struct {
 }
 
 func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) routes.Route {
-	return mfxRoute{
+	return &mfxRoute{
 		route: routes.NewRoute(n, m, s, log, pub),
 	}
 }
 
-func (mr mfxRoute) NatsTopic() string {
+func (mr *mfxRoute) NatsTopic() string {
 	return mr.route.NatsTopic()
 }
 
-func (mr mfxRoute) MqttTopic() string {
+func (mr *mfxRoute) MqttTopic() string {
 	return mr.route.MqttTopic()
 }
 
-func (mr mfxRoute) Subtopic() string {
+func (mr *mfxRoute) Subtopic() string {
 	return mr.route.Subtopic()
 }
 
-func (mr mfxRoute) Consume(m *nats.Msg) {
+func (mr *mfxRoute) Consume(m *nats.Msg) {
 	mr.route.Consume(m)
 }
 
-func (mr mfxRoute) Process(data []byte) ([]byte, error) {
+func (mr *mfxRoute) Process(data []byte) ([]byte, error) {
 	msg := mainflux.Message{}
 	err := proto.Unmarshal(data, &msg)
 	if err != nil {
@@ -73,4 +73,8 @@ func (mr mfxRoute) Process(data []byte) ([]byte, error) {
 		return []byte{}, err
 	}
 	return payload, nil
+}
+
+func (mr *mfxRoute) Subscribe(group string, nc *nats.Conn) error {
+	return mr.route.Subscribe(group, nc)
 }

@@ -6,9 +6,7 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -17,15 +15,21 @@ import (
 	"github.com/mainflux/export/internal/pkg/routes"
 	"github.com/mainflux/export/internal/pkg/routes/mfx"
 	"github.com/mainflux/export/pkg/config"
+	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
+)
+
+var (
+	errNoCacheConfigured   = errors.New("No cache configured")
+	errFailedToAddToStream = errors.New("Failed to add to redis stream")
 )
 
 type Service interface {
 	Start(queue string) error
 	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
-	Publish(subject, topic string, payload []byte)
+	Publish(subject, topic string, payload []byte) errors.Error
 }
 
 var _ Service = (*exporter)(nil)
@@ -43,7 +47,7 @@ type exporter struct {
 }
 
 const (
-	exportGroup = "export-group"
+	exportGroup = "export"
 	count       = 100
 
 	disconnected uint32 = iota
@@ -56,7 +60,7 @@ const (
 var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service
-func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
+func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error) {
 	routes := make(map[string]routes.Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
@@ -70,10 +74,10 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
-		log.Fatalf(err.Error())
+		return &e, err
 	}
 	e.mqtt = client
-	return &e
+	return &e, nil
 }
 
 // Start method loads route configuration
@@ -109,20 +113,20 @@ func (e *exporter) Start(queue string) error {
 	return nil
 }
 
-func (e *exporter) Publish(subject, topic string, payload []byte) {
-	e.logger.Debug(fmt.Sprintf("Publishing to topic %s", topic))
-	if err := e.publish(topic, payload); err == nil {
-		return
+func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
+	if err := e.publish(topic, payload); err != nil {
+		if e.cache == nil {
+			return errors.Wrap(errNoCacheConfigured, err)
+		}
+		// If error occurred and cache is being used
+		// we will store data to try to republish later
+		_, err = e.cache.Add(subject, topic, payload)
+		if err != nil {
+			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), subject))
+			return errors.Wrap(errFailedToAddToStream, err)
+		}
 	}
-	if e.cache == nil {
-		return
-	}
-	// If error occurred and cache is being used
-	// we will store data to try to republish later
-	_, err := e.cache.Add(subject, topic, payload)
-	if err != nil {
-		e.logger.Error(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
-	}
+	return nil
 }
 
 func (e *exporter) Logger() logger.Logger {
@@ -177,12 +181,9 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		_, err := nc.QueueSubscribe(r.NatsTopic(), e.id, r.Consume)
-		if err == nil {
-			e.logger.Info(fmt.Sprintf("Subscribed to NATS %s", r.NatsTopic()))
-			continue
+		if err := r.Subscribe(exportGroup, nc); err != nil {
+			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s", r.NatsTopic()))
 		}
-		e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", r.NatsTopic()))
 	}
 }
 
