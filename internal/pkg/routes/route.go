@@ -83,7 +83,7 @@ func (r *route) Consume(msg *nats.Msg) {
 func (r *route) Subscribe(group string, nc *nats.Conn) error {
 	sub, err := nc.ChanQueueSubscribe(r.NatsTopic(), group, r.messages)
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to subscribe to %s: %s", r.NatsTopic(), err))
+		r.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic(), err))
 		return err
 	}
 	r.logger.Info(fmt.Sprintf("Starting %d workers", workers))
