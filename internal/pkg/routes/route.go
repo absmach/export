@@ -27,7 +27,6 @@ type route struct {
 	subtopic  string
 	logger    logger.Logger
 	pub       publish.Publisher
-	workers   int
 	messages  chan *nats.Msg
 	sub       *nats.Subscription
 }
