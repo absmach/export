@@ -23,6 +23,7 @@ import (
 
 var (
 	errNoCacheConfigured = errors.New("No cache configured")
+	errFailedToAddToStream =errors.New( "Failed to add to redis stream")
 )
 
 type Service interface {
@@ -47,7 +48,7 @@ type exporter struct {
 }
 
 const (
-	exportGroup = "export-group"
+	exportGroup = "export"
 	count       = 100
 
 	disconnected uint32 = iota
@@ -122,7 +123,8 @@ func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
 		// we will store data to try to republish later
 		_, err = e.cache.Add(subject, topic, payload)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add to redis stream `%s`", subject))
+			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), subject))
+			return errors.Wrap(errFailedToAddToStream, err)  
 		}
 	}
 	return nil
@@ -180,7 +182,7 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		if err := r.Subscribe(nc); err != nil {
+		if err := r.Subscribe(exportGroup, nc); err != nil {
 			e.logger.Error(fmt.Sprintf("Failed to subscribe for NATS %s", r.NatsTopic()))
 		}
 	}

@@ -75,6 +75,6 @@ func (mr *mfxRoute) Process(data []byte) ([]byte, error) {
 	return payload, nil
 }
 
-func (mr *mfxRoute) Subscribe(nc *nats.Conn) error {
-	return mr.route.Subscribe(nc)
+func (mr *mfxRoute) Subscribe(group string, nc *nats.Conn) error {
+	return mr.route.Subscribe(group, nc)
 }

@@ -16,6 +16,11 @@ import (
 // Later we can add direction and other combination like ( nats-nats).
 // Route is used in mfx and plain. Route is like base implementation and mfx and plain
 // are extended implementation.
+
+const (
+	workers = 200
+)
+
 type route struct {
 	natsTopic string
 	mqttTopic string
@@ -27,17 +32,13 @@ type route struct {
 	sub       *nats.Subscription
 }
 
-var (
-	workers = 200
-)
-
 type Route interface {
 	Consume(*nats.Msg)
 	Process(data []byte) ([]byte, error)
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
-	Subscribe(nc *nats.Conn) error
+	Subscribe(g string, nc *nats.Conn) error
 }
 
 func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
@@ -76,13 +77,13 @@ func (r *route) Consume(msg *nats.Msg) {
 	}
 	topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
 	if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err.Error()))
+		r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err))
 	}
 	r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
 }
 
-func (r *route) Subscribe(nc *nats.Conn) error {
-	sub, err := nc.ChanSubscribe(r.NatsTopic(), r.messages)
+func (r *route) Subscribe(group string, nc *nats.Conn) error {
+	sub, err := nc.ChanQueueSubscribe(r.NatsTopic(), group, r.messages)
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("Failed to subscribe to check results channel: %s", err))
 		return err

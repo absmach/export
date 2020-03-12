@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.2.0
-	github.com/go-kit/kit v0.10.0 // indirect
+	github.com/go-kit/kit v0.10.0
 	github.com/go-redis/redis v6.15.7+incompatible
 	github.com/go-zoo/bone v1.3.0
 	github.com/gogo/protobuf v1.3.1
