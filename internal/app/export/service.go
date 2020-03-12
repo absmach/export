@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -61,7 +60,7 @@ const (
 var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service
-func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
+func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error) {
 	routes := make(map[string]routes.Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
@@ -75,10 +74,11 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) Service {
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
-		log.Fatalf(err.Error())
+		l.Error(err.Error())
+		return &e, err
 	}
 	e.mqtt = client
-	return &e
+	return &e, nil
 }
 
 // Start method loads route configuration
