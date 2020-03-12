@@ -49,7 +49,6 @@ func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
 		logger:    log,
 		pub:       pub,
 		messages:  make(chan *nats.Msg, workers),
-		workers:   workers,
 	}
 	return &r
 }
@@ -90,7 +89,7 @@ func (r *route) Subscribe(group string, nc *nats.Conn) error {
 	}
 	r.logger.Info(fmt.Sprintf("Starting %d workers", workers))
 	r.sub = sub
-	for i := 0; i < r.workers; i++ {
+	for i := 0; i < workers; i++ {
 		go r.runWorker()
 	}
 
