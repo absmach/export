@@ -23,7 +23,6 @@ func formatJwt(kind string, jwtString string) ([]byte, error) {
 	templ := `-----BEGIN NATS %s JWT-----
 %s
 ------END NATS %s JWT------
-
 `
 	w := bytes.NewBuffer(nil)
 	kind = strings.ToUpper(kind)
@@ -61,7 +60,6 @@ func DecorateSeed(seed []byte) ([]byte, error) {
 	header := `************************* IMPORTANT *************************
 NKEY Seed printed below can be used to sign and prove identity.
 NKEYs are sensitive and should be treated as secrets.
-
 -----BEGIN %s NKEY SEED-----
 `
 	_, err := fmt.Fprintf(w, header, kind)
@@ -72,7 +70,6 @@ NKEYs are sensitive and should be treated as secrets.
 
 	footer := `
 ------END %s NKEY SEED------
-
 *************************************************************
 `
 	_, err = fmt.Fprintf(w, footer, kind)
