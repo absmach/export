@@ -10,7 +10,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/internal/pkg/messages"
@@ -193,7 +192,7 @@ func (e *exporter) publish(topic string, payload []byte) error {
 		return mqtt.ErrNotConnected
 	}
 	token := e.mqtt.Publish(topic, byte(e.cfg.MQTT.QoS), e.cfg.MQTT.Retain, payload)
-	if token.WaitTimeout(1*time.Second) && token.Error() != nil {
+	if token.Wait() && token.Error() != nil {
 		e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
 		return token.Error()
 	}

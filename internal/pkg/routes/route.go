@@ -28,7 +28,7 @@ type route struct {
 }
 
 var (
-	workers = 10
+	workers = 200
 )
 
 type Route interface {
@@ -38,7 +38,6 @@ type Route interface {
 	MqttTopic() string
 	Subtopic() string
 	Subscribe(nc *nats.Conn) error
-	Clean()
 }
 
 func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
@@ -49,6 +48,7 @@ func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
 		logger:    log,
 		pub:       pub,
 		messages:  make(chan *nats.Msg, workers),
+		workers:   workers,
 	}
 	return &r
 }
@@ -87,16 +87,18 @@ func (r *route) Subscribe(nc *nats.Conn) error {
 		r.logger.Error(fmt.Sprintf("Failed to subscribe to check results channel: %s", err))
 		return err
 	}
+	r.logger.Info(fmt.Sprintf("Starting %d workers", workers))
 	r.sub = sub
-	go func() {
-		for msg := range r.messages {
-			go r.Consume(msg)
-		}
-	}()
+	for i := 0; i < r.workers; i++ {
+		go r.runWorker()
+	}
+
 	return nil
 }
 
-func (r *route) Clean() {
-	r.sub.Unsubscribe()
-	close(r.messages)
+func (r *route) runWorker() {
+	for msg := range r.messages {
+		r.Consume(msg)
+	}
+
 }

@@ -78,7 +78,3 @@ func (mr *mfxRoute) Process(data []byte) ([]byte, error) {
 func (mr *mfxRoute) Subscribe(nc *nats.Conn) error {
 	return mr.route.Subscribe(nc)
 }
-
-func (mr *mfxRoute) Clean() {
-	mr.route.Clean()
-}
