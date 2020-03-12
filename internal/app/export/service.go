@@ -74,7 +74,6 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
-		l.Error(err.Error())
 		return &e, err
 	}
 	e.mqtt = client
