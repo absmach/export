@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mainflux/export/internal/app/export/publish"
+	"github.com/mainflux/export/pkg/messages"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/nats-io/nats.go"
 )
@@ -26,7 +26,7 @@ type route struct {
 	mqttTopic string
 	subtopic  string
 	logger    logger.Logger
-	pub       publish.Publisher
+	pub       messages.Publisher
 	messages  chan *nats.Msg
 	sub       *nats.Subscription
 }
@@ -40,7 +40,7 @@ type Route interface {
 	Subscribe(g string, nc *nats.Conn) error
 }
 
-func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) Route {
+func NewRoute(n, m, s string, log logger.Logger, pub messages.Publisher) Route {
 	r := route{
 		natsTopic: n,
 		mqttTopic: m,

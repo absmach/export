@@ -11,10 +11,10 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/mainflux/export/internal/pkg/messages"
-	"github.com/mainflux/export/internal/pkg/routes"
-	"github.com/mainflux/export/internal/pkg/routes/mfx"
 	"github.com/mainflux/export/pkg/config"
+	"github.com/mainflux/export/pkg/messages"
+	"github.com/mainflux/export/pkg/routes"
+	"github.com/mainflux/export/pkg/routes/mfx"
 	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -24,14 +24,15 @@ var (
 	errNoCacheConfigured   = errors.New("No cache configured")
 	errFailedToAddToStream = errors.New("Failed to add to redis stream")
 )
+
 type Exporter interface {
-	
-}
-type Service interface {
 	Start(queue string) error
 	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
-	Publish(subject, topic string, payload []byte) errors.Error
+}
+type Service interface {
+	Exporter
+	messages.Publisher
 }
 
 var _ Service = (*exporter)(nil)

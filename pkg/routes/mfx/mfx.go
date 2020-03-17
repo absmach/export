@@ -5,8 +5,8 @@ package mfx
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/mainflux/export/internal/app/export/publish"
-	"github.com/mainflux/export/internal/pkg/routes"
+	"github.com/mainflux/export/pkg/messages"
+	"github.com/mainflux/export/pkg/routes"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
@@ -30,7 +30,7 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string, log logger.Logger, pub publish.Publisher) routes.Route {
+func NewRoute(n, m, s string, log logger.Logger, pub messages.Publisher) routes.Route {
 	return &mfxRoute{
 		route: routes.NewRoute(n, m, s, log, pub),
 	}

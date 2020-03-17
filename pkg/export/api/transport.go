@@ -10,7 +10,7 @@ import (
 	"net/http"
 
 	"github.com/go-zoo/bone"
-	"github.com/mainflux/export/internal/app/export"
+	"github.com/mainflux/export/pkg/export"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
