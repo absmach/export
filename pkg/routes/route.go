@@ -9,7 +9,7 @@ import (
 
 	"github.com/mainflux/export/pkg/messages"
 	"github.com/mainflux/mainflux/logger"
-	"github.com/nats-io/nats.go"
+	nats "github.com/nats-io/nats.go"
 )
 
 // Route - message route, tells which nats topic messages goes to which mqtt topic.
@@ -29,25 +29,30 @@ type route struct {
 	pub       messages.Publisher
 	messages  chan *nats.Msg
 	sub       *nats.Subscription
+	workers   int
 }
 
 type Route interface {
-	Consume(*nats.Msg)
+	Consume()
 	Process(data []byte) ([]byte, error)
+	MessagesBuffer() chan *nats.Msg
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
-	Subscribe(g string, nc *nats.Conn) error
 }
 
-func NewRoute(n, m, s string, log logger.Logger, pub messages.Publisher) Route {
+func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) Route {
+	if w == 0 {
+		w = workers
+	}
 	r := route{
 		natsTopic: n,
 		mqttTopic: m,
 		subtopic:  s,
 		logger:    log,
 		pub:       pub,
-		messages:  make(chan *nats.Msg, workers),
+		messages:  make(chan *nats.Msg, w),
+		workers:   w,
 	}
 	return &r
 }
@@ -68,36 +73,28 @@ func (r *route) Process(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (r *route) Consume(msg *nats.Msg) {
-	payload, err := r.Process(msg.Data)
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
-	}
-	topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
-	if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err))
-	}
-	r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
+func (r *route) MessagesBuffer() chan *nats.Msg {
+	return r.messages
 }
 
-func (r *route) Subscribe(group string, nc *nats.Conn) error {
-	sub, err := nc.ChanQueueSubscribe(r.NatsTopic(), group, r.messages)
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic(), err))
-		return err
-	}
-	r.logger.Info(fmt.Sprintf("Starting %d workers", workers))
-	r.sub = sub
-	for i := 0; i < workers; i++ {
-		go r.runWorker()
-	}
-
-	return nil
-}
-
-func (r *route) runWorker() {
+func (r *route) Consume() {
 	for msg := range r.messages {
-		r.Consume(msg)
-	}
 
+		payload, err := r.Process(msg.Data)
+		if err != nil {
+			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
+		}
+		topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
+		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
+			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err))
+		}
+		r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
+	}
 }
+
+// func (r *route) runWorker() {
+// 	for msg := range r.messages {
+// 		r.Consume(msg)
+// 	}
+
+// }

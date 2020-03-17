@@ -10,7 +10,7 @@ import (
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/senml"
-	"github.com/nats-io/nats.go"
+	nats "github.com/nats-io/nats.go"
 )
 
 const (
@@ -30,9 +30,9 @@ type mfxRoute struct {
 	route routes.Route
 }
 
-func NewRoute(n, m, s string, log logger.Logger, pub messages.Publisher) routes.Route {
+func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) routes.Route {
 	return &mfxRoute{
-		route: routes.NewRoute(n, m, s, log, pub),
+		route: routes.NewRoute(n, m, s, w, log, pub),
 	}
 }
 
@@ -48,8 +48,8 @@ func (mr *mfxRoute) Subtopic() string {
 	return mr.route.Subtopic()
 }
 
-func (mr *mfxRoute) Consume(m *nats.Msg) {
-	mr.route.Consume(m)
+func (mr *mfxRoute) Consume() {
+	mr.route.Consume()
 }
 
 func (mr *mfxRoute) Process(data []byte) ([]byte, error) {
@@ -75,6 +75,6 @@ func (mr *mfxRoute) Process(data []byte) ([]byte, error) {
 	return payload, nil
 }
 
-func (mr *mfxRoute) Subscribe(group string, nc *nats.Conn) error {
-	return mr.route.Subscribe(group, nc)
+func (mr *mfxRoute) MessagesBuffer() chan *nats.Msg {
+	return mr.route.MessagesBuffer()
 }

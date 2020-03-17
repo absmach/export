@@ -26,7 +26,7 @@ var (
 )
 
 type Exporter interface {
-	Start(queue string) error
+	Start(queue string) errors.Error
 	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
 }
@@ -84,16 +84,10 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error
 }
 
 // Start method loads route configuration
-func (e *exporter) Start(queue string) error {
+func (e *exporter) Start(queue string) errors.Error {
 	var route routes.Route
 	for _, r := range e.cfg.Routes {
-		natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
-		switch r.Type {
-		case "mfx":
-			route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
-		default:
-			route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
-		}
+		route = e.newRoute(r)
 		if !e.validateSubject(route.NatsTopic()) {
 			continue
 		}
@@ -134,6 +128,18 @@ func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
 
 func (e *exporter) Logger() logger.Logger {
 	return e.logger
+}
+
+func (e *exporter) newRoute(r config.Route) routes.Route {
+	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
+	var route routes.Route
+	switch r.Type {
+	case "mfx":
+		route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+	default:
+		route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+	}
+	return route
 }
 
 func (e *exporter) startRepublish() {
@@ -184,8 +190,13 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		if err := r.Subscribe(exportGroup, nc); err != nil {
-			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s", r.NatsTopic()))
+		_, err := nc.ChanQueueSubscribe(r.NatsTopic(), exportGroup, r.MessagesBuffer())
+		if err != nil {
+			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic(), err))
+		}
+		lw := len(r.MessagesBuffer())
+		for i := 0; i < lw; i++ {
+			go r.Consume()
 		}
 	}
 }
