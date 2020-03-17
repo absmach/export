@@ -26,4 +26,5 @@ File = "config3.toml"
   nats_topic = "*"
   subtopic = ""
   type = "plain"
+  workers = 300
 
