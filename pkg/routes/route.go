@@ -36,6 +36,7 @@ type Route interface {
 	Consume()
 	Process(data []byte) ([]byte, error)
 	MessagesBuffer() chan *nats.Msg
+	Workers() int
 	NatsTopic() string
 	MqttTopic() string
 	Subtopic() string
@@ -55,6 +56,10 @@ func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) 
 		workers:   w,
 	}
 	return &r
+}
+
+func (r *route) Workers() int {
+	return r.workers
 }
 
 func (r *route) NatsTopic() string {
@@ -79,7 +84,6 @@ func (r *route) MessagesBuffer() chan *nats.Msg {
 
 func (r *route) Consume() {
 	for msg := range r.messages {
-
 		payload, err := r.Process(msg.Data)
 		if err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))

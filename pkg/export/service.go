@@ -194,8 +194,7 @@ func (e *exporter) Subscribe(nc *nats.Conn) {
 		if err != nil {
 			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic(), err))
 		}
-		lw := len(r.MessagesBuffer())
-		for i := 0; i < lw; i++ {
+		for i := 0; i < r.Workers(); i++ {
 			go r.Consume()
 		}
 	}

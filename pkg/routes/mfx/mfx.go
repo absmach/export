@@ -36,6 +36,10 @@ func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) 
 	}
 }
 
+func (mr *mfxRoute) Workers() int {
+	return mr.route.Workers()
+}
+
 func (mr *mfxRoute) NatsTopic() string {
 	return mr.route.NatsTopic()
 }
