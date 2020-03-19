@@ -12,11 +12,6 @@ import (
 	nats "github.com/nats-io/nats.go"
 )
 
-// Route - message route, tells which nats topic messages goes to which mqtt topic.
-// Later we can add direction and other combination like ( nats-nats).
-// Route is used in mfx and plain. Route is like base implementation and mfx and plain
-// are extended implementation.
-
 const (
 	workers = 200
 )
@@ -31,6 +26,10 @@ type route struct {
 	workers   int
 }
 
+// Route - message route, tells which nats topic messages goes to which mqtt topic.
+// Later we can add direction and other combination like ( nats-nats).
+// Route is used in mfx and plain. route.go has base implementation and mfx.go
+// has extended implementation.
 type Route interface {
 	Consume()
 	Process(data []byte) ([]byte, error)
@@ -91,13 +90,6 @@ func (r *route) Consume() {
 		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err))
 		}
-		r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
+		//r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
 	}
 }
-
-// func (r *route) runWorker() {
-// 	for msg := range r.messages {
-// 		r.Consume(msg)
-// 	}
-
-// }
