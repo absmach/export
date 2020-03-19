@@ -56,8 +56,8 @@ const (
 	disconnected uint32 = iota
 	connected
 
-	NatsSub = "export"
-	NatsAll = ">"
+	exportTopic = "export"
+	allTopic    = ">"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
@@ -95,7 +95,7 @@ func (e *exporter) Start(queue string) errors.Error {
 		if e.cache != nil {
 			g, err := e.cache.GroupCreate(r.NatsTopic, exportGroup)
 			if err != nil {
-				e.logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+				e.logger.Error(fmt.Sprintf("Failed to create stream group: %s", err.Error()))
 			}
 			e.logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
 		}
@@ -131,7 +131,7 @@ func (e *exporter) Logger() logger.Logger {
 }
 
 func (e *exporter) newRoute(r config.Route) routes.Route {
-	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
+	natsTopic := fmt.Sprintf("%s.%s", exportTopic, r.NatsTopic)
 	var route routes.Route
 	switch r.Type {
 	case "mfx":
@@ -146,7 +146,7 @@ func (e *exporter) startRepublish() {
 	// Initial connection established on start up
 	<-e.connected
 	for _, route := range e.cfg.Routes {
-		stream := []string{route.NatsTopic, ">"}
+		stream := []string{route.NatsTopic, allTopic}
 		go e.republish(stream)
 	}
 }
