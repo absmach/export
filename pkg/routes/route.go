@@ -28,7 +28,6 @@ type route struct {
 	logger    logger.Logger
 	pub       messages.Publisher
 	messages  chan *nats.Msg
-	sub       *nats.Subscription
 	workers   int
 }
 
