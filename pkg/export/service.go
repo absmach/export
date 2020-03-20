@@ -19,10 +19,6 @@ import (
 	nats "github.com/nats-io/nats.go"
 )
 
-const (
-	mfxType = "mfx"
-)
-
 var (
 	errNoCacheConfigured   = errors.New("No cache configured")
 	errFailedToAddToStream = errors.New("Failed to add to redis stream")
@@ -91,10 +87,10 @@ func (e *exporter) Start(queue string) errors.Error {
 	var route routes.Route
 	for _, r := range e.cfg.Routes {
 		route = e.newRoute(r)
-		if !e.validateSubject(route.NatsTopic()) {
+		if !e.validateSubject(route.NatsTopic) {
 			continue
 		}
-		e.consumers[route.NatsTopic()] = route
+		e.consumers[route.NatsTopic] = route
 		if e.cache != nil {
 			g, err := e.cache.GroupCreate(r.NatsTopic, exportGroup)
 			if err != nil {
@@ -186,11 +182,11 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		_, err := nc.ChanQueueSubscribe(r.NatsTopic(), exportGroup, r.MessagesBuffer())
+		_, err := nc.ChanQueueSubscribe(r.NatsTopic, exportGroup, r.Messages)
 		if err != nil {
-			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic(), err))
+			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic, err))
 		}
-		for i := 0; i < r.Workers(); i++ {
+		for i := 0; i < r.Workers; i++ {
 			go r.Consume()
 		}
 	}
