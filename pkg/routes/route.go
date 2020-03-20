@@ -13,7 +13,12 @@ import (
 )
 
 const (
-	workers = 200
+	// Number of the workers depends on the connection capacity
+	// as well as on payload size that needs to be sent.
+	// Number of workers also determines the size of the buffer
+	// that recieves messages from NATS.
+	// For regular telemetry SenML messages 10 workers is enough.
+	workers = 10
 )
 
 type route struct {
