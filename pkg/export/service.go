@@ -20,6 +20,10 @@ import (
 	nats "github.com/nats-io/nats.go"
 )
 
+const (
+	mfxType = "mfx"
+)
+
 var (
 	errNoCacheConfigured   = errors.New("No cache configured")
 	errFailedToAddToStream = errors.New("Failed to add to redis stream")
@@ -134,7 +138,7 @@ func (e *exporter) newRoute(r config.Route) routes.Route {
 	natsTopic := fmt.Sprintf("%s.%s", exportTopic, r.NatsTopic)
 	var route routes.Route
 	switch r.Type {
-	case "mfx":
+	case mfxType:
 		route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
 	default:
 		route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
