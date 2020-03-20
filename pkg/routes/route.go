@@ -21,79 +21,50 @@ const (
 	workers = 10
 )
 
-type route struct {
-	natsTopic string
-	mqttTopic string
-	subtopic  string
-	logger    logger.Logger
-	pub       messages.Publisher
-	messages  chan *nats.Msg
-	workers   int
-}
-
 // Route - message route, tells which nats topic messages goes to which mqtt topic.
 // Later we can add direction and other combination like ( nats-nats).
 // Route is used in mfx and plain. route.go has base implementation and mfx.go
 // has extended implementation.
-type Route interface {
-	Consume()
-	Process(data []byte) ([]byte, error)
-	MessagesBuffer() chan *nats.Msg
-	Workers() int
-	NatsTopic() string
-	MqttTopic() string
-	Subtopic() string
+
+type Route struct {
+	NatsTopic string
+	MqttTopic string
+	Subtopic  string
+	Messages  chan *nats.Msg
+	Workers   int
+	logger    logger.Logger
+	pub       messages.Publisher
 }
 
 func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) Route {
 	if w == 0 {
 		w = workers
 	}
-	r := route{
-		natsTopic: n,
-		mqttTopic: m,
-		subtopic:  s,
+	r := Route{
+		NatsTopic: n,
+		MqttTopic: m,
+		Subtopic:  s,
+		Messages:  make(chan *nats.Msg, w),
+		Workers:   w,
 		logger:    log,
 		pub:       pub,
-		messages:  make(chan *nats.Msg, w),
-		workers:   w,
 	}
-	return &r
+	return r
 }
 
-func (r *route) Workers() int {
-	return r.workers
-}
-
-func (r *route) NatsTopic() string {
-	return r.natsTopic
-}
-
-func (r *route) MqttTopic() string {
-	return r.mqttTopic
-}
-
-func (r *route) Subtopic() string {
-	return r.subtopic
-}
-
-func (r *route) Process(data []byte) ([]byte, error) {
+func (r *Route) Process(data []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (r *route) MessagesBuffer() chan *nats.Msg {
-	return r.messages
-}
-
-func (r *route) Consume() {
-	for msg := range r.messages {
+func (r *Route) Consume() {
+	for msg := range r.Messages {
 		payload, err := r.Process(msg.Data)
 		if err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
 		}
-		topic := fmt.Sprintf("%s/%s", r.MqttTopic(), strings.ReplaceAll(msg.Subject, ".", "/"))
+		topic := fmt.Sprintf("%s/%s", r.MqttTopic, strings.ReplaceAll(msg.Subject, ".", "/"))
 		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
-			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic(), err))
+			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic, err))
 		}
 		r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
 	}
