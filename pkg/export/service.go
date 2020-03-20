@@ -14,7 +14,6 @@ import (
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
 	"github.com/mainflux/export/pkg/routes"
-	"github.com/mainflux/export/pkg/routes/mfx"
 	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -137,12 +136,7 @@ func (e *exporter) Logger() logger.Logger {
 func (e *exporter) newRoute(r config.Route) routes.Route {
 	natsTopic := fmt.Sprintf("%s.%s", exportTopic, r.NatsTopic)
 	var route routes.Route
-	switch r.Type {
-	case mfxType:
-		route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
-	default:
-		route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
-	}
+	route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
 	return route
 }
 
