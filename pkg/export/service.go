@@ -55,8 +55,8 @@ const (
 	disconnected uint32 = iota
 	connected
 
-	exportTopic = "export"
-	allTopic    = ">"
+	NatsSub = "export"
+	NatsAll = ">"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
@@ -130,7 +130,7 @@ func (e *exporter) Logger() logger.Logger {
 }
 
 func (e *exporter) newRoute(r config.Route) routes.Route {
-	natsTopic := fmt.Sprintf("%s.%s", exportTopic, r.NatsTopic)
+	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
 	return routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
 }
 
@@ -138,7 +138,7 @@ func (e *exporter) startRepublish() {
 	// Initial connection established on start up
 	<-e.connected
 	for _, route := range e.cfg.Routes {
-		stream := []string{route.NatsTopic, allTopic}
+		stream := []string{route.NatsTopic, NatsAll}
 		go e.republish(stream)
 	}
 }
