@@ -11,10 +11,9 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/mainflux/export/internal/pkg/messages"
-	"github.com/mainflux/export/internal/pkg/routes"
-	"github.com/mainflux/export/internal/pkg/routes/mfx"
 	"github.com/mainflux/export/pkg/config"
+	"github.com/mainflux/export/pkg/messages"
+	"github.com/mainflux/export/pkg/routes"
 	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -25,11 +24,14 @@ var (
 	errFailedToAddToStream = errors.New("Failed to add to redis stream")
 )
 
-type Service interface {
-	Start(queue string) error
+type Exporter interface {
+	Start(queue string) errors.Error
 	Subscribe(nc *nats.Conn)
 	Logger() logger.Logger
-	Publish(subject, topic string, payload []byte) errors.Error
+}
+type Service interface {
+	Exporter
+	messages.Publisher
 }
 
 var _ Service = (*exporter)(nil)
@@ -81,24 +83,18 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error
 }
 
 // Start method loads route configuration
-func (e *exporter) Start(queue string) error {
+func (e *exporter) Start(queue string) errors.Error {
 	var route routes.Route
 	for _, r := range e.cfg.Routes {
-		natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
-		switch r.Type {
-		case "mfx":
-			route = mfx.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
-		default:
-			route = routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, e.logger, e)
-		}
-		if !e.validateSubject(route.NatsTopic()) {
+		route = e.newRoute(r)
+		if !e.validateSubject(route.NatsTopic) {
 			continue
 		}
-		e.consumers[route.NatsTopic()] = route
+		e.consumers[route.NatsTopic] = route
 		if e.cache != nil {
 			g, err := e.cache.GroupCreate(r.NatsTopic, exportGroup)
 			if err != nil {
-				e.logger.Error(fmt.Sprintf("Failed to create stream group %s", err.Error()))
+				e.logger.Error(fmt.Sprintf("Failed to create stream group: %s", err))
 			}
 			e.logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
 		}
@@ -133,11 +129,16 @@ func (e *exporter) Logger() logger.Logger {
 	return e.logger
 }
 
+func (e *exporter) newRoute(r config.Route) routes.Route {
+	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
+	return routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+}
+
 func (e *exporter) startRepublish() {
 	// Initial connection established on start up
 	<-e.connected
 	for _, route := range e.cfg.Routes {
-		stream := []string{route.NatsTopic, ">"}
+		stream := []string{route.NatsTopic, NatsAll}
 		go e.republish(stream)
 	}
 }
@@ -181,8 +182,12 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		if err := r.Subscribe(exportGroup, nc); err != nil {
-			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s", r.NatsTopic()))
+		_, err := nc.ChanQueueSubscribe(r.NatsTopic, exportGroup, r.Messages)
+		if err != nil {
+			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic, err))
+		}
+		for i := 0; i < r.Workers; i++ {
+			go r.Consume()
 		}
 	}
 }

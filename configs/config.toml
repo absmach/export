@@ -1,4 +1,4 @@
-File = "config3.toml"
+File = "/configs/export/config.toml"
 
 [exp]
   log_level = "debug"
@@ -26,4 +26,10 @@ File = "config3.toml"
   nats_topic = "*"
   subtopic = ""
   type = "plain"
+## Number of the workers depends on the connection capacity
+## as well as on payload size that needs to be sent.
+## Number of workers also determines the size of the buffer
+## that recieves messages from NATS.
+## For regular telemetry SenML messages 10 workers is enough.
+  workers = 10
 

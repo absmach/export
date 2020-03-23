@@ -61,6 +61,7 @@ type Route struct {
 	NatsTopic string `json:"nats_topic" toml:"nats_topic" mapstructure:"nats_topic"`
 	SubTopic  string `json:"subtopic" toml:"subtopic" mapstructure:"subtopic"`
 	Type      string `json:"type" toml:"type" mapstructure:"type"`
+	Workers   int    `json:"workers" toml:"workers" mapstructure:"workers"`
 }
 
 // Save - store config in a file
