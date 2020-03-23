@@ -66,6 +66,6 @@ func (r *Route) Consume() {
 		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic, err))
 		}
-		r.logger.Debug(fmt.Sprintf("Published to:%s , payload:%s", msg.Subject, string(payload[:50])))
+		r.logger.Debug(fmt.Sprintf("Published to :%s, payload :%s", msg.Subject, string(payload[:50])))
 	}
 }

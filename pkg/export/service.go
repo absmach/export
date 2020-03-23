@@ -94,7 +94,7 @@ func (e *exporter) Start(queue string) errors.Error {
 		if e.cache != nil {
 			g, err := e.cache.GroupCreate(r.NatsTopic, exportGroup)
 			if err != nil {
-				e.logger.Error(fmt.Sprintf("Failed to create stream group: %s", err.Error()))
+				e.logger.Error(fmt.Sprintf("Failed to create stream group: %s", err))
 			}
 			e.logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
 		}
