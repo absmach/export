@@ -73,6 +73,7 @@ const (
 	envCacheDB   = "MF_EXPORT_CACHE_DB"
 
 	heartbeatSubject = "heartbeat"
+	service          = "service"
 )
 
 func main() {
@@ -110,7 +111,7 @@ func main() {
 	// Publish heartbeat
 	ticker := time.NewTicker(10000 * time.Millisecond)
 	go func() {
-		subject := fmt.Sprintf("%s.%s", heartbeatSubject, "export")
+		subject := fmt.Sprintf("%s.%s.%s", heartbeatSubject, svcName, service)
 		for range ticker.C {
 			if err := nc.Publish(subject, []byte{}); err != nil {
 				logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
