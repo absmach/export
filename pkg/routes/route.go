@@ -18,7 +18,8 @@ const (
 	// Number of workers also determines the size of the buffer
 	// that recieves messages from NATS.
 	// For regular telemetry SenML messages 10 workers is enough.
-	workers = 10
+	workers  = 10
+	sliceLen = 50
 )
 
 // Route - message route, tells which nats topic messages goes to which mqtt topic.
@@ -66,6 +67,18 @@ func (r *Route) Consume() {
 		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic, err))
 		}
-		r.logger.Debug(fmt.Sprintf("Published to: %s, payload: %s", msg.Subject, string(payload[:50])))
+		r.msgDebug(msg.Subject, payload)
 	}
+}
+
+func (r *Route) msgDebug(sub string, payload []byte) {
+	p := ""
+	l := sliceLen
+	if len(payload) > 0 {
+		if l > len(payload) {
+			l = len(payload)
+		}
+		p = string(payload[:l])
+	}
+	r.logger.Debug(fmt.Sprintf("Published to: %s, payload: %s", sub, p))
 }
