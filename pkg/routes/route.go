@@ -73,8 +73,8 @@ func (r *Route) Consume() {
 
 func (r *Route) msgDebug(sub string, payload []byte) {
 	p := ""
-	l := sliceLen
 	if len(payload) > 0 {
+		l := sliceLen
 		if l > len(payload) {
 			l = len(payload)
 		}
