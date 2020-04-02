@@ -5,6 +5,7 @@ package routes
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/mainflux/export/pkg/messages"
@@ -73,12 +74,8 @@ func (r *Route) Consume() {
 
 func (r *Route) msgDebug(sub string, payload []byte) {
 	p := ""
-	if len(payload) > 0 {
-		l := sliceLen
-		if l > len(payload) {
-			l = len(payload)
-		}
-		p = string(payload[:l])
+	if l := math.Min(float64(sliceLen), float64(len(payload))); len(payload) > 0 {
+		p = string(payload[:int(l)])
 	}
 	r.logger.Debug(fmt.Sprintf("Published to: %s, payload: %s", sub, p))
 }
