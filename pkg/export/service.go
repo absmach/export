@@ -13,7 +13,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
-	"github.com/mainflux/export/pkg/routes"
 	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
 	nats "github.com/nats-io/nats.go"
@@ -40,7 +39,7 @@ type exporter struct {
 	id        string
 	mqtt      mqtt.Client
 	cfg       config.Config
-	consumers map[string]routes.Route
+	consumers map[string]Route
 	cache     messages.Cache
 	logger    logger.Logger
 	connected chan bool
@@ -63,7 +62,7 @@ var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service
 func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error) {
-	routes := make(map[string]routes.Route)
+	routes := make(map[string]Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
 	e := exporter{
@@ -84,7 +83,7 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error
 
 // Start method loads route configuration
 func (e *exporter) Start(queue string) errors.Error {
-	var route routes.Route
+	var route Route
 	for _, r := range e.cfg.Routes {
 		route = e.newRoute(r)
 		if !e.validateSubject(route.NatsTopic) {
@@ -129,9 +128,9 @@ func (e *exporter) Logger() logger.Logger {
 	return e.logger
 }
 
-func (e *exporter) newRoute(r config.Route) routes.Route {
+func (e *exporter) newRoute(r config.Route) Route {
 	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
-	return routes.NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
 }
 
 func (e *exporter) startRepublish() {
