@@ -10,5 +10,4 @@ MF_EXPORT_MQTT_MTLS=false \
 MF_EXPORT_MQTT_CA=ca.crt \
 MF_EXPORT_MQTT_CLIENT_CERT=thing.crt \
 MF_EXPORT_MQTT_CLIENT_PK=thing.key \
-MF_EXPORT_CHANNELS_CONFIG=../docker/channels.toml \
 ../build/mainflux-export&
