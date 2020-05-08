@@ -179,7 +179,8 @@ func loadConfigs() (exp.Config, error) {
 			CertPath:    mainflux.Env(envMqttCert, defMqttCert),
 			PrivKeyPath: mainflux.Env(envMqttPrivKey, defMqttPrivKey),
 		}
-		mqttTopic := mainflux.Env(envMqttChannel, defMqttChannel)
+		mqttChannel := mainflux.Env(envMqttChannel, defMqttChannel)
+		mqttTopic := "channels/" + mqttChannel + "/messages"
 		natsTopic := "*"
 		rc := []exp.Route{{
 			MqttTopic: mqttTopic,
