@@ -1,39 +1,45 @@
 # Export
-Mainflux Export service that sends messages from one Mainflux cloud to another via MQTT
+Mainflux Export service can sends message from one Mainflux cloud to another via MQTT, or it can send messages from edge gateway.
+Export service is subscribed to local message bus and connected to mqtt broker.  
+Messages collected on local message bus are redirected to cloud.
+Export service can store messages into `Redis` streams when connection is lost and upon connection reestablishment it consumes messages from stream and send it to cloud.
+
 
 ## Install
 Get the code:
 
-```
+```bash
 go get github.com/mainflux/export
 cd $GOPATH/github.com/mainflux/export
 ```
 
 Make:
-```
+```bash
 make
 ```
 
 ## Usage
 
-```
+```bash
 cd build
 ./mainflux-export
 ```
 
-### Config
-By default it will look for config file at `../configs/config.toml` if no env vars are specified.  
+## Configuration
+By default it will look for config file at [`../configs/config.toml`][conftoml] if no env vars are specified.  
 
-```
+```toml
 [exp]
+  cache_pass = ""
+  cache_url = "localhost:6379"
+  cache_db = "0"
   log_level = "debug"
-  nats = "nats://127.0.0.1:4222"
+  nats = "localhost:4222"
   port = "8170"
 
 [mqtt]
-  channel = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
-  username = "4a437f46-da7b-4469-96b7-be754b5e8d36"
-  password = "ac6b57e0-9b70-45d6-94c8-e67ac9086165"
+  username = "<thing_id>"
+  password = "<thing_password>"
   ca = "ca.crt"
   cert = "thing.crt"
   mtls = "false"
@@ -43,15 +49,38 @@ By default it will look for config file at `../configs/config.toml` if no env va
   url = "tcp://mainflux.com:1883"
 
 [[routes]]
-  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
-  nats_topic = "*"
-  type = "mfx"
-
-[[routes]]
-  mqtt_topic = "channel/4c66a785-1900-4844-8caa-56fb8cfd61eb/messages"
-  nats_topic = "*"
+  mqtt_topic = "channel/<channel_id>/messages"
+  subtopic = "subtopic"
+  nats_topic = ".>"
   type = "plain"
+  workers = 10
 ```
+### Http port
+- `port` - HTTP port where status of service can be obtained
+```bash
+curl -X GET http://localhost:8170/version
+{"service":"export","version":"0.0.1"}%
+``` 
+### Redis connection
+To configure `Redis` connection settings `cache_url`, `cache_pass`, `cache_db` in `config.toml` are used.
+
+### MQTT connection
+
+To establish connection to MQTT broker following settings are needed:
+- `username` - Mainflux <thing_id>
+- `password` - Mainflux <thing_key>
+- `url` - url of MQTT broker
+
+Additionally, you will need MQTT client certificates if you enable mTLS. To obtain certificates `ca.crt`, `thing.crt` and key `thing.key` follow instructions [here](https://mainflux.readthedocs.io/en/latest/authentication/#mutual-tls-authentication-with-x509-certificates).
+
+  
+### Routes 
+Routes are being used for specifying which subscriber topic(subject) goes to which publishing topic.
+Currently only mqtt is supported for publishing. To match Mainflux requirements `mqtt_topic` must contain `channel/<channel_id>/messages`, additional subtopics can be appended.
+- `export` service will be subscribed to NATS subject `export.<nats_topic>`
+- messages will be published to MQTT topic `<mqtt_topic>/<subtopic>/<nats_subject>, where dots in nats_subject are replaced with '/'
+- workers control number of workers that will be used for message forwarding.
+
 to run it edit configs/config.toml and change `channel`, `username`, `password` and `url`
  * `username` is actually thing id in mainflux cloud instance
  * `password` is thing key
@@ -71,13 +100,10 @@ nats section must look like below
       - 4222:4222
 ```
   
-## Environmet variables
+## Environment variables
 
-Service will look for `config.toml` first and if not found it will be configured   
-with env variables and new `config.toml` will be saved with values populated from env vars.  
-The service is configured using the environment variables presented in the  
-following table. Note that any unset variables will be replaced with their  
-default values.
+Service will look for `config.toml` first and if not found it will be configured with env variables and new `config.toml` will be saved with values populated from env vars.  
+The service is configured using the environment variables presented in the following table. Note that any unset variables will be replaced with their default values.
 
 | Variable                      | Description                                                   | Default               |
 |-------------------------------|---------------------------------------------------------------|-----------------------|
@@ -94,10 +120,25 @@ default values.
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                      | 0                     |
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                   | false                 |
 | MF_EXPORT_CONF_PATH           | Configuration file                                            | config.toml           |
-| MF_EXPORT_CHANNELS_CONFIG     | Channels to which will export service listen to               | channels.toml         |
 
-to change values be sure that there is no config.toml as this is default
+for values to take effect make sure that there is no `MF_EXPORT_CONF` file.
 
+If you run with environment variables you can create config file:
+```bash
+MF_EXPORT_PORT=8178 \
+MF_EXPORT_LOG_LEVEL=debug \
+MF_EXPORT_MQTT_HOST=tcp://localhost:1883 \
+MF_EXPORT_MQTT_USERNAME=88529fb2-6c1e-4b60-b9ab-73b5d89f7404 \
+MF_EXPORT_MQTT_PASSWORD=ac6b57e0-9b70-45d6-94c8-e67ac9086165 \
+MF_EXPORT_MQTT_CHANNEL=4c66a785-1900-4844-8caa-56fb8cfd61eb \
+MF_EXPORT_MQTT_SKIP_TLS=true \
+MF_EXPORT_MQTT_MTLS=false \
+MF_EXPORT_MQTT_CA=ca.crt \
+MF_EXPORT_MQTT_CLIENT_CERT=thing.crt \
+MF_EXPORT_MQTT_CLIENT_PK=thing.key \
+MF_EXPORT_CONF_PATH=export.toml \
+../build/mainflux-export&
+```
 ## How to save config via agent
 
 ```
@@ -109,3 +150,5 @@ mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/
 b,_ := toml.Marshal(export.Config)
 payload := base64.StdEncoding.EncodeToString(b)
 ```
+
+[conftoml]: (https://github.com/mainflux/export/blob/master/configs/config.toml)
