@@ -295,7 +295,7 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 	token.Wait()
 
 	if token.Error() != nil {
-		logger.Error(fmt.Sprintf("Client %s had error connecting to the broker: %s\n", e.id, token.Error().Error()))
+		logger.Error(fmt.Sprintf("Client %s had error connecting to the broker: %v", e.id, token.Error()))
 		return nil, token.Error()
 	}
 	return client, nil
