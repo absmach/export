@@ -1,8 +1,8 @@
 # Export
-Mainflux Export service can sends message from one Mainflux cloud to another via MQTT, or it can send messages from edge gateway to Mainflux Cloud.
-Export service is subscribed to local message bus and connected to MQTT broker.  
-Messages collected on local message bus are redirected to cloud.
-When connection is lost messages from local bus are stored into `Redis` stream. Upon connection reestablishment `Export` service consumes messages from `Redis` and sends it to cloud.
+Mainflux Export service can send message from one Mainflux cloud to another via MQTT, or it can send messages from edge gateway to Mainflux Cloud.
+Export service is subscribed to local message bus and connected to MQTT broker in the cloud.  
+Messages collected on local message bus are redirected to the cloud.
+When connection is lost, messages from local bus are stored into `Redis` stream. Upon connection reestablishment `Export` service consumes messages from `Redis` stream and sends it to the Mainflux cloud.
 
 
 ## Install
@@ -56,12 +56,15 @@ By default `Export` service looks for config file at [`../configs/config.toml`][
   workers = 10
 ```
 ### Http port
+
 - `port` - HTTP port where status of `Export` service can be fetched.
 ```bash
 curl -X GET http://localhost:8170/version
 {"service":"export","version":"0.0.1"}%
 ``` 
+
 ### Redis connection
+
 To configure `Redis` connection settings `cache_url`, `cache_pass`, `cache_db` in `config.toml` are used.
 
 ### MQTT connection
@@ -73,19 +76,21 @@ To establish connection to MQTT broker following settings are needed:
 
 Additionally, you will need MQTT client certificates if you enable mTLS. To obtain certificates `ca.crt`, `thing.crt` and key `thing.key` follow instructions [here](https://mainflux.readthedocs.io/en/latest/authentication/#mutual-tls-authentication-with-x509-certificates).
 
-  
 ### Routes 
-Routes are being used for specifying which subscriber topic(subject) goes to which publishing topic.
-Currently only mqtt is supported for publishing. To match Mainflux requirements `mqtt_topic` must contain `channel/<channel_id>/messages`, additional subtopics can be appended.
+
+Routes are being used for specifying which subscriber's topic(subject) goes to which publishing topic.
+Currently only MQTT is supported for publishing. To match Mainflux requirements `mqtt_topic` must contain `channel/<channel_id>/messages`, additional subtopics can be appended.
+
+- `mqtt_topic` - `channel/<channel_id>/messages/<custom_subtopic>`
 - `nats_topic` - `Export` service will be subscribed to NATS subject `export.<nats_topic>`
 - `subtopic` - messages will be published to MQTT topic `<mqtt_topic>/<subtopic>/<nats_subject>`, where dots in nats_subject are replaced with '/'
 - `workers` control number of workers that will be used for message forwarding.
 - `type` - specifies message transformation, currently only `plain` is supported, meaning no transformation.
 
 Before running `Export` service edit `configs/config.toml` and provide `username`, `password` and `url`
- * `username` is actually thing id in mainflux cloud instance
- * `password` is thing key
- * `channel` is mqtt topic where to publish mqtt data ( `channel/<channel_id>/messages` is format of mainflux mqtt topic)
+ * `username` - matches `thing_id` in Mainflux cloud instance
+ * `password` - matches `thing_key`
+ * `channel` - MQTT part of the topic where to publish MQTT data (`channel/<channel_id>/messages` is format of mainflux MQTT topic) and plays a part in authorization.
 
 In order for `Export` service to listen on Mainflux NATS deployed on the same machine NATS port must be exposed.
 Edit Mainflux [docker-compose.yml][docker-compose]. NATS section must look like below:
@@ -121,16 +126,16 @@ The service is configured using the environment variables presented in the follo
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                   | false                 |
 | MF_EXPORT_CONF_PATH           | Configuration file                                            | config.toml           |
 
-for values to take effect make sure that there is no `MF_EXPORT_CONF` file.
+for values in environment variables to take effect make sure that there is no `MF_EXPORT_CONF` file.
 
 If you run with environment variables you can create config file:
 ```bash
 MF_EXPORT_PORT=8178 \
 MF_EXPORT_LOG_LEVEL=debug \
 MF_EXPORT_MQTT_HOST=tcp://localhost:1883 \
-MF_EXPORT_MQTT_USERNAME=88529fb2-6c1e-4b60-b9ab-73b5d89f7404 \
-MF_EXPORT_MQTT_PASSWORD=ac6b57e0-9b70-45d6-94c8-e67ac9086165 \
-MF_EXPORT_MQTT_CHANNEL=4c66a785-1900-4844-8caa-56fb8cfd61eb \
+MF_EXPORT_MQTT_USERNAME=<thing_id> \
+MF_EXPORT_MQTT_PASSWORD=<thing_key> \
+MF_EXPORT_MQTT_CHANNEL=<channel_id> \
 MF_EXPORT_MQTT_SKIP_TLS=true \
 MF_EXPORT_MQTT_MTLS=false \
 MF_EXPORT_MQTT_CA=ca.crt \
@@ -139,6 +144,10 @@ MF_EXPORT_MQTT_CLIENT_PK=thing.key \
 MF_EXPORT_CONF_PATH=export.toml \
 ../build/mainflux-export&
 ```
+
+Service will be subscribed to NATS `export.>` subject and send messages to `channels/<MF_EXPORT_MQTT_CHANNEL>/messages`.
+Created `export.toml` you can edit to add different routes and use in next run.
+
 ## How to save config via agent
 
 Configuration file for `Export` service can be send over MQTT using [Agent][agent] service.
