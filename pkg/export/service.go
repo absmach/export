@@ -54,8 +54,10 @@ const (
 	disconnected uint32 = iota
 	connected
 
-	NatsSub = "export"
-	NatsAll = ">"
+	NatsSub  = "export"
+	NatsAll  = ">"
+	Channels = "channels"
+	Messages = "messages"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
