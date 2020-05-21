@@ -64,7 +64,11 @@ func (r *Route) Consume() {
 		if err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
 		}
-		topic := fmt.Sprintf("%s/%s", r.MqttTopic, strings.ReplaceAll(msg.Subject, ".", "/"))
+		topic := r.MqttTopic
+		if r.Subtopic != "" {
+			topic = fmt.Sprintf("%s/%s", r.MqttTopic, r.Subtopic)
+		}
+		topic = fmt.Sprintf("%s/%s", topic, strings.ReplaceAll(msg.Subject, ".", "/"))
 		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic, err))
 		}
