@@ -107,7 +107,7 @@ Edit Mainflux [docker-compose.yml][docker-compose]. NATS section must look like 
   
 ## Environment variables
 
-Service will look for `config.toml` first and if not found it will be configured with env variables and new config file specified with `MF_EXPORT_CONF_PATH` will be saved with values populated from env vars.  
+Service will look for `config.toml` first and if not found it will be configured with env variables and new config file specified with `MF_EXPORT_CONFIG_FILE` will be saved with values populated from env vars.  
 The service is configured using the environment variables presented in the following table. Note that any unset variables will be replaced with their default values.
 
 | Variable                      | Description                                                   | Default               |
@@ -124,7 +124,7 @@ The service is configured using the environment variables presented in the follo
 | MF_EXPORT_MQTT_CLIENT_PK      | Client key for authentication in case when MTLS = true        | thing.key             |
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                      | 0                     |
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                   | false                 |
-| MF_EXPORT_CONF_PATH           | Configuration file                                            | config.toml           |
+| MF_EXPORT_CONFIG_FILE           | Configuration file                                            | config.toml           |
 
 for values in environment variables to take effect make sure that there is no `MF_EXPORT_CONF` file.
 
@@ -141,7 +141,7 @@ MF_EXPORT_MQTT_MTLS=false \
 MF_EXPORT_MQTT_CA=ca.crt \
 MF_EXPORT_MQTT_CLIENT_CERT=thing.crt \
 MF_EXPORT_MQTT_CLIENT_PK=thing.key \
-MF_EXPORT_CONF_PATH=export.toml \
+MF_EXPORT_CONFIG_FILE=export.toml \
 ../build/mainflux-export&
 ```
 
