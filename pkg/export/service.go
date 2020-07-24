@@ -288,8 +288,8 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 			cfg.RootCAs = x509.NewCertPool()
 			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
 		}
-		if conf.MQTT.Cert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
+		if conf.MQTT.TLSCert.Certificate != nil {
+			cfg.Certificates = []tls.Certificate{conf.MQTT.TLSCert}
 		}
 
 		cfg.BuildNameToCertificate()
