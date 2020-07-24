@@ -66,7 +66,7 @@ const (
 	envMqttRetain     = "MF_EXPORT_MQTT_RETAIN"
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
-	envConfigFile     = "MF_EXPORT_CONF_PATH"
+	envConfigFile     = "MF_EXPORT_CONFIG_FILE"
 
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
