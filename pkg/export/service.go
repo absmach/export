@@ -111,7 +111,7 @@ func (e *exporter) Start(queue string) errors.Error {
 	return nil
 }
 
-func (e *exporter) Publish(stream, topic string, payload []byte) errors.Error {
+func (e *exporter) Publish(stream, topic string, payload []byte) error {
 	if err := e.publish(topic, payload); err != nil {
 		if e.cache == nil {
 			return errors.Wrap(errNoCacheConfigured, err)
@@ -133,7 +133,7 @@ func (e *exporter) Logger() logger.Logger {
 
 func (e *exporter) newRoute(r config.Route) Route {
 	natsTopic := fmt.Sprintf("%s.%s", r.NatsTopic, NatsAll)
-	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Type, r.Workers, e.logger, e)
 }
 
 func (e *exporter) startRepublish() {

@@ -8,8 +8,11 @@ import (
 	"math"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/mainflux/export/pkg/messages"
+	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
+	"github.com/mainflux/mainflux/messaging"
 	nats "github.com/nats-io/nats.go"
 )
 
@@ -21,7 +24,12 @@ const (
 	// For regular telemetry SenML messages 10 workers is enough.
 	workers  = 10
 	sliceLen = 50
+	dflt     = "default"
+	mainflux = "mfx"
+	JSON     = "application/senml+json"
 )
+
+var errUnsupportedType = errors.New("route type is not supported")
 
 // Route - message route, tells which nats topic messages goes to which mqtt topic.
 // Later we can add direction and other combination like ( nats-nats).
@@ -34,11 +42,12 @@ type Route struct {
 	Subtopic  string
 	Messages  chan *nats.Msg
 	Workers   int
+	Type      string
 	logger    logger.Logger
 	pub       messages.Publisher
 }
 
-func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) Route {
+func NewRoute(n, m, s, t string, w int, log logger.Logger, pub messages.Publisher) Route {
 	if w == 0 {
 		w = workers
 	}
@@ -48,6 +57,7 @@ func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) 
 		Subtopic:  s,
 		Messages:  make(chan *nats.Msg, w),
 		Workers:   w,
+		Type:      t,
 		logger:    log,
 		pub:       pub,
 	}
@@ -55,7 +65,23 @@ func NewRoute(n, m, s string, w int, log logger.Logger, pub messages.Publisher) 
 }
 
 func (r *Route) Process(data []byte) ([]byte, error) {
-	return data, nil
+	if r.Type == dflt {
+		return data, nil
+	}
+	switch r.Type {
+	case dflt:
+		return data, nil
+	case mainflux:
+		var msg messaging.Message
+		err := proto.Unmarshal(data, &msg)
+		if err != nil {
+			return nil, err
+		}
+		return msg.Payload, nil
+	default:
+		return nil, errUnsupportedType
+	}
+
 }
 
 func (r *Route) Consume() {
