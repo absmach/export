@@ -124,7 +124,7 @@ The service is configured using the environment variables presented in the follo
 | MF_EXPORT_MQTT_CLIENT_PK      | Client key for authentication in case when MTLS = true        | thing.key             |
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                      | 0                     |
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                   | false                 |
-| MF_EXPORT_CONFIG_FILE           | Configuration file                                            | config.toml           |
+| MF_EXPORT_CONFIG_FILE         | Configuration file                                            | config.toml           |
 
 for values in environment variables to take effect make sure that there is no `MF_EXPORT_CONF` file.
 
