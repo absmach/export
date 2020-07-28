@@ -26,7 +26,7 @@ File = "/configs/export/config.toml"
   mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
   nats_topic = "export"
   subtopic = ""
-  type = "plain"
+  type = "default"
 ## Number of the workers depends on the connection capacity
 ## as well as on payload size that needs to be sent.
 ## Number of workers also determines the size of the buffer
@@ -38,7 +38,7 @@ File = "/configs/export/config.toml"
   mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
   nats_topic = "channels"
   subtopic = ""
-  type = "plain"
+  type = "mfx"
 ## Number of the workers depends on the connection capacity
 ## as well as on payload size that needs to be sent.
 ## Number of workers also determines the size of the buffer
