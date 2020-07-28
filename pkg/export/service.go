@@ -184,8 +184,7 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		natsTopic := r.NatsTopic + "." + NatsAll
-		_, err := nc.ChanQueueSubscribe(natsTopic, exportGroup, r.Messages)
+		_, err := nc.ChanQueueSubscribe(r.NatsTopic, exportGroup, r.Messages)
 		if err != nil {
 			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic, err))
 		}
@@ -212,7 +211,7 @@ func (e *exporter) validateSubject(sub string) bool {
 	if sub == "" {
 		return false
 	}
-	if strings.ContainsAny(sub, "> \t\r\n") {
+	if strings.ContainsAny(sub, " \t\r\n") {
 		return false
 	}
 	tokens := strings.Split(sub, ".")
