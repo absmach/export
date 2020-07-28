@@ -51,7 +51,7 @@ By default `Export` service looks for config file at [`../configs/config.toml`][
 [[routes]]
   mqtt_topic = "channel/<channel_id>/messages"
   subtopic = "subtopic"
-  nats_topic = ".>"
+  nats_topic = "export"
   type = "plain"
   workers = 10
 ```
@@ -82,7 +82,7 @@ Routes are being used for specifying which subscriber's topic(subject) goes to w
 Currently only MQTT is supported for publishing. To match Mainflux requirements `mqtt_topic` must contain `channel/<channel_id>/messages`, additional subtopics can be appended.
 
 - `mqtt_topic` - `channel/<channel_id>/messages/<custom_subtopic>`
-- `nats_topic` - `Export` service will be subscribed to NATS subject `export.<nats_topic>`
+- `nats_topic` - `Export` service will be subscribed to NATS subject `<nats_topic>.>`
 - `subtopic` - messages will be published to MQTT topic `<mqtt_topic>/<subtopic>/<nats_subject>`, where dots in nats_subject are replaced with '/'
 - `workers` control number of workers that will be used for message forwarding.
 - `type` - specifies message transformation, currently only `plain` is supported, meaning no transformation.
@@ -145,15 +145,17 @@ MF_EXPORT_CONF_PATH=export.toml \
 ../build/mainflux-export&
 ```
 
-Service will be subscribed to NATS `export.>` subject and send messages to `channels/<MF_EXPORT_MQTT_CHANNEL>/messages`.
+Service will be subscribed to NATS `<nats_topic>.>` subject and send messages to `channels/<MF_EXPORT_MQTT_CHANNEL>/messages` + `/` + `<NatsSubject>`.
+For example if you are running Mainflux on a gateway if you set `nats_topic="channel"` you can make `export` service forward messages to other Mainflux instances i.e. into to the Mainflux cloud.
+When message gets published to local Mainflux instance it will end on NATS as `channels.<local_channel_id>.messages.subtopic`, Export service will pick it up and forward it to `<mqtt_topic>` ending on `<mqtt_topic>/channels/<local_channel_id>/messages/subtopic`.
 Created `export.toml` you can edit to add different routes and use in next run.
 
 ## How to save config via agent
 
 Configuration file for `Export` service can be send over MQTT using [Agent][agent] service.
-
+save, export,
 ```
-mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"<config_file_path>, <file_content_base64>\"}]"
+mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"save, export, <config_file_path>, <file_content_base64>\"}]"
 ```
 
 `vs="config_file_path, file_content_base64"` - vs determines where to save file and contains file content in base64 encoding payload:
