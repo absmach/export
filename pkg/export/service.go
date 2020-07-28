@@ -89,6 +89,7 @@ func (e *exporter) Start(queue string) errors.Error {
 	for _, r := range e.cfg.Routes {
 		route = e.newRoute(r)
 		if !e.validateSubject(route.NatsTopic) {
+			e.logger.Error("Bad NATS subject:" + route.NatsTopic)
 			continue
 		}
 		e.consumers[route.NatsTopic] = route
@@ -110,16 +111,16 @@ func (e *exporter) Start(queue string) errors.Error {
 	return nil
 }
 
-func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
+func (e *exporter) Publish(stream, topic string, payload []byte) errors.Error {
 	if err := e.publish(topic, payload); err != nil {
 		if e.cache == nil {
 			return errors.Wrap(errNoCacheConfigured, err)
 		}
 		// If error occurred and cache is being used
 		// we will store data to try to republish later
-		_, err = e.cache.Add(subject, topic, payload)
+		_, err = e.cache.Add(stream, topic, payload)
 		if err != nil {
-			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), subject))
+			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), stream))
 			return errors.Wrap(errFailedToAddToStream, err)
 		}
 	}
@@ -131,7 +132,7 @@ func (e *exporter) Logger() logger.Logger {
 }
 
 func (e *exporter) newRoute(r config.Route) Route {
-	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
+	natsTopic := fmt.Sprintf("%s.%s", r.NatsTopic, NatsAll)
 	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
 }
 
@@ -183,7 +184,8 @@ func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, erro
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
 	for _, r := range e.consumers {
-		_, err := nc.ChanQueueSubscribe(r.NatsTopic, exportGroup, r.Messages)
+		natsTopic := r.NatsTopic + "." + NatsAll
+		_, err := nc.ChanQueueSubscribe(natsTopic, exportGroup, r.Messages)
 		if err != nil {
 			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic, err))
 		}
@@ -207,7 +209,10 @@ func (e *exporter) publish(topic string, payload []byte) error {
 }
 
 func (e *exporter) validateSubject(sub string) bool {
-	if strings.ContainsAny(sub, " \t\r\n") {
+	if sub == "" {
+		return false
+	}
+	if strings.ContainsAny(sub, "> \t\r\n") {
 		return false
 	}
 	tokens := strings.Split(sub, ".")

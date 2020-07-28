@@ -5,5 +5,5 @@ package messages
 import "github.com/mainflux/mainflux/errors"
 
 type Publisher interface {
-	Publish(string, string, []byte) errors.Error
+	Publish(stream string, topic string, msg []byte) errors.Error
 }

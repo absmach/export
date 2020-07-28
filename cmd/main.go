@@ -181,7 +181,7 @@ func loadConfigs() (exp.Config, error) {
 		}
 		mqttChannel := mainflux.Env(envMqttChannel, defMqttChannel)
 		mqttTopic := export.Channels + "/" + mqttChannel + "/" + export.Messages
-		natsTopic := export.NatsAll
+		natsTopic := export.NatsSub
 		rc := []exp.Route{{
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
