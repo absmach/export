@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+
+MF_EXPORT_CONFIG_FILE=./export-config.toml mainflux-export
+
