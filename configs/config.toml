@@ -26,6 +26,7 @@ File = "/configs/export/config.toml"
   mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
   nats_topic = "export"
   subtopic = ""
+## default means that payload sent on NATS will be just forwarded to MQTT
   type = "default"
 ## Number of the workers depends on the connection capacity
 ## as well as on payload size that needs to be sent.
@@ -38,6 +39,8 @@ File = "/configs/export/config.toml"
   mqtt_topic = "channels/2a362536-e835-44de-be73-e5cf3df1a0f1/messages"
   nats_topic = "channels"
   subtopic = ""
+## mfx means that payload sent on NATS is actually Mainflux messages
+## so first SenML payload will be extracted and then forwarded to MQTT
   type = "mfx"
 ## Number of the workers depends on the connection capacity
 ## as well as on payload size that needs to be sent.
