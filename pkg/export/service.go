@@ -132,8 +132,7 @@ func (e *exporter) Logger() logger.Logger {
 }
 
 func (e *exporter) newRoute(r config.Route) Route {
-	natsTopic := fmt.Sprintf("%s.%s", r.NatsTopic, NatsAll)
-	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Type, r.Workers, e.logger, e)
+	return NewRoute(r, e.logger, e)
 }
 
 func (e *exporter) startRepublish() {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
 	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
@@ -22,11 +23,11 @@ const (
 	// Number of workers also determines the size of the buffer
 	// that recieves messages from NATS.
 	// For regular telemetry SenML messages 10 workers is enough.
-	workers  = 10
-	sliceLen = 50
-	dflt     = "default"
-	mainflux = "mfx"
-	JSON     = "application/senml+json"
+	workers      = 10
+	sliceLen     = 50
+	defaultType  = "default"
+	mainfluxType = "mfx"
+	JSON         = "application/senml+json"
 )
 
 var errUnsupportedType = errors.New("route type is not supported")
@@ -47,17 +48,18 @@ type Route struct {
 	pub       messages.Publisher
 }
 
-func NewRoute(n, m, s, t string, w int, log logger.Logger, pub messages.Publisher) Route {
+func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) Route {
+	w := rc.Workers
 	if w == 0 {
 		w = workers
 	}
 	r := Route{
-		NatsTopic: n,
-		MqttTopic: m,
-		Subtopic:  s,
-		Messages:  make(chan *nats.Msg, w),
+		NatsTopic: rc.NatsTopic + "." + NatsAll,
+		MqttTopic: rc.MqttTopic,
+		Subtopic:  rc.SubTopic,
+		Type:      rc.Type,
 		Workers:   w,
-		Type:      t,
+		Messages:  make(chan *nats.Msg, w),
 		logger:    log,
 		pub:       pub,
 	}
@@ -65,13 +67,10 @@ func NewRoute(n, m, s, t string, w int, log logger.Logger, pub messages.Publishe
 }
 
 func (r *Route) Process(data []byte) ([]byte, error) {
-	if r.Type == dflt {
-		return data, nil
-	}
 	switch r.Type {
-	case dflt:
+	case defaultType:
 		return data, nil
-	case mainflux:
+	case mainfluxType:
 		var msg messaging.Message
 		err := proto.Unmarshal(data, &msg)
 		if err != nil {
