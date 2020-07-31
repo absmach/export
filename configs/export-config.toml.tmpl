@@ -1,0 +1,35 @@
+[exp]
+  cache_db = "0"
+  cache_pass = ""
+  cache_url = "localhost:6379"
+  log_level = "debug"
+  nats = "nats://127.0.0.1:4222"
+  port = "8170"
+
+[mqtt]
+  ca_path = "ca.crt"
+  client_cert = ""
+  client_cert_key = ""
+  client_cert_path = ""
+  client_priv_key_path = ""
+  host = "tcp://localhost:8883"
+  mtls = true
+  password = ""
+  qos = 0
+  retain = false
+  skip_tls_ver = false
+  username = ""
+
+[[routes]]
+  mqtt_topic = "x"
+  nats_topic = "channels"
+  subtopic = ""
+  type = "mfx"
+  workers = 0
+
+[[routes]]
+  mqtt_topic = "x"
+  nats_topic = "export"
+  subtopic = ""
+  type = "default"
+  workers = 0
