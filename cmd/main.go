@@ -66,7 +66,7 @@ const (
 	envMqttRetain     = "MF_EXPORT_MQTT_RETAIN"
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
-	envConfigFile     = "MF_EXPORT_CONF_PATH"
+	envConfigFile     = "MF_EXPORT_CONFIG_FILE"
 
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
@@ -175,13 +175,13 @@ func loadConfigs() (exp.Config, error) {
 			MTLS:       mqttMTLS,
 			SkipTLSVer: mqttSkipTLSVer,
 
-			CAPath:      mainflux.Env(envMqttCA, defMqttCA),
-			CertPath:    mainflux.Env(envMqttCert, defMqttCert),
-			PrivKeyPath: mainflux.Env(envMqttPrivKey, defMqttPrivKey),
+			CAPath:            mainflux.Env(envMqttCA, defMqttCA),
+			ClientCertPath:    mainflux.Env(envMqttCert, defMqttCert),
+			ClientPrivKeyPath: mainflux.Env(envMqttPrivKey, defMqttPrivKey),
 		}
 		mqttChannel := mainflux.Env(envMqttChannel, defMqttChannel)
 		mqttTopic := export.Channels + "/" + mqttChannel + "/" + export.Messages
-		natsTopic := export.NatsAll
+		natsTopic := export.NatsSub
 		rc := []exp.Route{{
 			MqttTopic: mqttTopic,
 			NatsTopic: natsTopic,
@@ -214,42 +214,66 @@ func loadConfigs() (exp.Config, error) {
 	return cfg, nil
 }
 
-func loadCertificate(cfg exp.MQTT) (exp.MQTT, errors.Error) {
-
-	caByte := []byte{}
+func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
+	var caByte []byte
+	var cc []byte
+	var pk []byte
 	cert := tls.Certificate{}
-	if cfg.MTLS {
-		caFile, err := os.Open(cfg.CAPath)
-		if err != nil {
-			return cfg, errors.New(err.Error())
-		}
-		defer caFile.Close()
-		caByte, _ = ioutil.ReadAll(caFile)
-
-		clientCert, err := os.Open(cfg.CertPath)
-		if err != nil {
-			return cfg, errors.New(err.Error())
-		}
-		defer clientCert.Close()
-		cc, _ := ioutil.ReadAll(clientCert)
-
-		privKey, err := os.Open(cfg.PrivKeyPath)
-		defer clientCert.Close()
-		if err != nil {
-			return cfg, errors.New(err.Error())
-		}
-
-		pk, _ := ioutil.ReadAll((privKey))
-
-		cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
-		if err != nil {
-			return cfg, errors.New(err.Error())
-		}
-
-		cfg.Cert = cert
-		cfg.CA = caByte
-
+	if cfg.MTLS == false {
+		return cfg, nil
 	}
+
+	caFile, err := os.Open(cfg.CAPath)
+	if err != nil {
+		return cfg, errors.New(err.Error())
+	}
+	defer caFile.Close()
+	caByte, _ = ioutil.ReadAll(caFile)
+
+	if cfg.ClientCertPath != "" {
+		clientCert, err := os.Open(cfg.ClientCertPath)
+		if err != nil {
+			return cfg, errors.New(err.Error())
+		}
+		defer clientCert.Close()
+		cc, err = ioutil.ReadAll(clientCert)
+		if err != nil {
+			return cfg, err
+		}
+	}
+
+	if len(cc) == 0 && cfg.ClientCert != "" {
+		cc = []byte(cfg.ClientCert)
+	}
+
+	if cfg.ClientPrivKeyPath != "" {
+		privKey, err := os.Open(cfg.ClientPrivKeyPath)
+		defer privKey.Close()
+		if err != nil {
+			return cfg, errors.New(err.Error())
+		}
+		pk, err = ioutil.ReadAll((privKey))
+		if err != nil {
+			return cfg, err
+		}
+	}
+
+	if len(pk) == 0 && cfg.ClientCertKey != "" {
+		pk = []byte(cfg.ClientCertKey)
+	}
+
+	if len(pk) == 0 || len(cc) == 0 {
+		return cfg, errors.New("failed loading client certificate")
+	}
+
+	cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
+	if err != nil {
+		return cfg, errors.New(err.Error())
+	}
+
+	cfg.TLSCert = cert
+	cfg.CA = caByte
+
 	return cfg, nil
 }
 

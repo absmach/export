@@ -6,10 +6,10 @@ package messages
 // Cache contains message  caching interface.
 type Cache interface {
 	// Add message
-	Add(string, string, []byte) (string, error)
+	Add(stream string, topic string, msg []byte) (string, error)
 
 	// Removes message from cache
-	Remove(string, string) (int64, error)
+	Remove(stream string, msgID string) (int64, error)
 
 	// Read group for redis streams
 	ReadGroup(streams []string, group string, count int64, consumer string) (map[string]Msg, int64, error)

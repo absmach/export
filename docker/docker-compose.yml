@@ -22,7 +22,7 @@ services:
     restart: on-failure
     environment:
       MF_NATS_URL: ${MF_NATS_URL}
-      MF_EXPORT_CONF_PATH: ${MF_EXPORT_CONF_PATH}
+      MF_EXPORT_CONFIG_FILE: ${MF_EXPORT_CONFIG_FILE}
       MF_EXPORT_MQTT_HOST: ${MF_EXPORT_MQTT_HOST}
       MF_EXPORT_MQTT_USERNAME: ${MF_EXPORT_MQTT_USERNAME}
       MF_EXPORT_MQTT_PASSWORD: ${MF_EXPORT_MQTT_PASSWORD}
@@ -38,7 +38,6 @@ services:
     networks:
       - docker_mainflux-base-net
     volumes:
-      - ./channels.toml:/channels.toml
       - ./config.toml:/config.toml
       - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
 
