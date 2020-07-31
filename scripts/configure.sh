@@ -37,8 +37,8 @@ controlChannel=`echo "${bootstrapResponse}" | jq -r '.mainflux_channels[0]'.id`
 if [ "$MTLS" == true ]; then
     echo "$clientCert" >> client.crt
     echo "$clientKey" >> client.key
-    clientCert=$(sed  -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//'   <<<"${clientCert}")
-    clientKey=$(sed  -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//'   <<<"${clientKey}")
+    clientCert=$(sed  -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< "${clientCert}")
+    clientKey=$(sed  -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< "${clientKey}")
 fi
 
 
