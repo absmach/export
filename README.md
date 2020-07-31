@@ -51,7 +51,7 @@ By default `Export` service looks for config file at [`../configs/config.toml`][
 [[routes]]
   mqtt_topic = "channel/<channel_id>/messages"
   subtopic = "subtopic"
-  nats_topic = ".>"
+  nats_topic = "export"
   type = "plain"
   workers = 10
 ```
@@ -82,7 +82,7 @@ Routes are being used for specifying which subscriber's topic(subject) goes to w
 Currently only MQTT is supported for publishing. To match Mainflux requirements `mqtt_topic` must contain `channel/<channel_id>/messages`, additional subtopics can be appended.
 
 - `mqtt_topic` - `channel/<channel_id>/messages/<custom_subtopic>`
-- `nats_topic` - `Export` service will be subscribed to NATS subject `export.<nats_topic>`
+- `nats_topic` - `Export` service will be subscribed to NATS subject `<nats_topic>.>`
 - `subtopic` - messages will be published to MQTT topic `<mqtt_topic>/<subtopic>/<nats_subject>`, where dots in nats_subject are replaced with '/'
 - `workers` control number of workers that will be used for message forwarding.
 - `type` - specifies message transformation, currently only `plain` is supported, meaning no transformation.
@@ -107,7 +107,7 @@ Edit Mainflux [docker-compose.yml][docker-compose]. NATS section must look like 
   
 ## Environment variables
 
-Service will look for `config.toml` first and if not found it will be configured with env variables and new config file specified with `MF_EXPORT_CONF_PATH` will be saved with values populated from env vars.  
+Service will look for `config.toml` first and if not found it will be configured with env variables and new config file specified with `MF_EXPORT_CONFIG_FILE` will be saved with values populated from env vars.  
 The service is configured using the environment variables presented in the following table. Note that any unset variables will be replaced with their default values.
 
 | Variable                      | Description                                                   | Default               |
@@ -124,7 +124,7 @@ The service is configured using the environment variables presented in the follo
 | MF_EXPORT_MQTT_CLIENT_PK      | Client key for authentication in case when MTLS = true        | thing.key             |
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                      | 0                     |
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                   | false                 |
-| MF_EXPORT_CONF_PATH           | Configuration file                                            | config.toml           |
+| MF_EXPORT_CONFIG_FILE         | Configuration file                                            | config.toml           |
 
 for values in environment variables to take effect make sure that there is no `MF_EXPORT_CONF` file.
 
@@ -141,19 +141,21 @@ MF_EXPORT_MQTT_MTLS=false \
 MF_EXPORT_MQTT_CA=ca.crt \
 MF_EXPORT_MQTT_CLIENT_CERT=thing.crt \
 MF_EXPORT_MQTT_CLIENT_PK=thing.key \
-MF_EXPORT_CONF_PATH=export.toml \
+MF_EXPORT_CONFIG_FILE=export.toml \
 ../build/mainflux-export&
 ```
 
-Service will be subscribed to NATS `export.>` subject and send messages to `channels/<MF_EXPORT_MQTT_CHANNEL>/messages`.
+Service will be subscribed to NATS `<nats_topic>.>` subject and send messages to `channels/<MF_EXPORT_MQTT_CHANNEL>/messages` + `/` + `<NatsSubject>`.
+For example if you are running Mainflux on a gateway if you set `nats_topic="channel"` you can make `export` service forward messages to other Mainflux instances i.e. into to the Mainflux cloud.
+When message gets published to local Mainflux instance it will end on NATS as `channels.<local_channel_id>.messages.subtopic`, Export service will pick it up and forward it to `<mqtt_topic>` ending on `<mqtt_topic>/channels/<local_channel_id>/messages/subtopic`.
 Created `export.toml` you can edit to add different routes and use in next run.
 
 ## How to save config via agent
 
 Configuration file for `Export` service can be send over MQTT using [Agent][agent] service.
-
+save, export,
 ```
-mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"<config_file_path>, <file_content_base64>\"}]"
+mosquitto_pub -u <thing_id> -P <thing_key> -t channels/<control_ch_id>/messages/req -h localhost -p 18831  -m  "[{\"bn\":\"1:\", \"n\":\"config\", \"vs\":\"save, export, <config_file_path>, <file_content_base64>\"}]"
 ```
 
 `vs="config_file_path, file_content_base64"` - vs determines where to save file and contains file content in base64 encoding payload:

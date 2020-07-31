@@ -89,6 +89,7 @@ func (e *exporter) Start(queue string) errors.Error {
 	for _, r := range e.cfg.Routes {
 		route = e.newRoute(r)
 		if !e.validateSubject(route.NatsTopic) {
+			e.logger.Error("Bad NATS subject:" + route.NatsTopic)
 			continue
 		}
 		e.consumers[route.NatsTopic] = route
@@ -110,16 +111,16 @@ func (e *exporter) Start(queue string) errors.Error {
 	return nil
 }
 
-func (e *exporter) Publish(subject, topic string, payload []byte) errors.Error {
+func (e *exporter) Publish(stream, topic string, payload []byte) error {
 	if err := e.publish(topic, payload); err != nil {
 		if e.cache == nil {
 			return errors.Wrap(errNoCacheConfigured, err)
 		}
 		// If error occurred and cache is being used
 		// we will store data to try to republish later
-		_, err = e.cache.Add(subject, topic, payload)
+		_, err = e.cache.Add(stream, topic, payload)
 		if err != nil {
-			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), subject))
+			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), stream))
 			return errors.Wrap(errFailedToAddToStream, err)
 		}
 	}
@@ -131,8 +132,7 @@ func (e *exporter) Logger() logger.Logger {
 }
 
 func (e *exporter) newRoute(r config.Route) Route {
-	natsTopic := fmt.Sprintf("%s.%s", NatsSub, r.NatsTopic)
-	return NewRoute(natsTopic, r.MqttTopic, r.SubTopic, r.Workers, e.logger, e)
+	return NewRoute(r, e.logger, e)
 }
 
 func (e *exporter) startRepublish() {
@@ -207,6 +207,9 @@ func (e *exporter) publish(topic string, payload []byte) error {
 }
 
 func (e *exporter) validateSubject(sub string) bool {
+	if sub == "" {
+		return false
+	}
 	if strings.ContainsAny(sub, " \t\r\n") {
 		return false
 	}
@@ -284,8 +287,8 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 			cfg.RootCAs = x509.NewCertPool()
 			cfg.RootCAs.AppendCertsFromPEM(conf.MQTT.CA)
 		}
-		if conf.MQTT.Cert.Certificate != nil {
-			cfg.Certificates = []tls.Certificate{conf.MQTT.Cert}
+		if conf.MQTT.TLSCert.Certificate != nil {
+			cfg.Certificates = []tls.Certificate{conf.MQTT.TLSCert}
 		}
 
 		cfg.BuildNameToCertificate()
