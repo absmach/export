@@ -40,7 +40,6 @@ type exporter struct {
 	mqtt      mqtt.Client
 	cfg       config.Config
 	consumers map[string]Route
-	cache     messages.Cache
 	logger    logger.Logger
 	connected chan bool
 	status    uint32
@@ -48,11 +47,10 @@ type exporter struct {
 }
 
 const (
-	exportGroup = "export"
-	count       = 100
-
 	disconnected uint32 = iota
 	connected
+	exportGroup = "export"
+	count       = 100
 
 	NatsSub  = "export"
 	NatsAll  = ">"
@@ -63,7 +61,7 @@ const (
 var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service
-func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error) {
+func New(c config.Config, l logger.Logger) (Service, error) {
 	routes := make(map[string]Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
@@ -72,8 +70,6 @@ func New(c config.Config, cache messages.Cache, l logger.Logger) (Service, error
 		logger:    l,
 		cfg:       c,
 		consumers: routes,
-		cache:     cache,
-		connected: make(chan bool, 1),
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
@@ -93,36 +89,18 @@ func (e *exporter) Start(queue string) errors.Error {
 			continue
 		}
 		e.consumers[route.NatsTopic] = route
-		if e.cache != nil {
-			g, err := e.cache.GroupCreate(r.NatsTopic, exportGroup)
-			if err != nil {
-				e.logger.Error(fmt.Sprintf("Failed to create stream group: %s", err))
-			}
-			e.logger.Info(fmt.Sprintf("Stream group %s created %s", r.NatsTopic, g))
-		}
 
 	}
 	if len(e.consumers) == 0 {
 		return errNoRoutesConfigured
 	}
-	if e.cache != nil {
-		go e.startRepublish()
-	}
+
 	return nil
 }
 
 func (e *exporter) Publish(stream, topic string, payload []byte) error {
 	if err := e.publish(topic, payload); err != nil {
-		if e.cache == nil {
-			return errors.Wrap(errNoCacheConfigured, err)
-		}
-		// If error occurred and cache is being used
-		// we will store data to try to republish later
-		_, err = e.cache.Add(stream, topic, payload)
-		if err != nil {
-			e.logger.Error(fmt.Sprintf("%s `%s`", errFailedToAddToStream.Error(), stream))
-			return errors.Wrap(errFailedToAddToStream, err)
-		}
+		return errors.Wrap(errNoCacheConfigured, err)
 	}
 	return nil
 }
@@ -133,52 +111,6 @@ func (e *exporter) Logger() logger.Logger {
 
 func (e *exporter) newRoute(r config.Route) Route {
 	return NewRoute(r, e.logger, e)
-}
-
-func (e *exporter) startRepublish() {
-	// Initial connection established on start up
-	<-e.connected
-	for _, route := range e.cfg.Routes {
-		stream := []string{route.NatsTopic, NatsAll}
-		go e.republish(stream)
-	}
-}
-
-func (e *exporter) republish(stream []string) {
-	for {
-		e.logger.Info("Republish, waiting for stream data")
-		msgs, err := e.readMessages(stream)
-		if err != nil {
-			continue
-		}
-		e.logger.Info(fmt.Sprintf("Waiting for connection to %s", e.cfg.MQTT.Host))
-		for {
-			// Wait for connection
-			if e.IsConnected() || <-e.connected {
-				for _, m := range msgs {
-					if err := e.publish(m.Topic, []byte(m.Payload)); err != nil {
-						e.logger.Error("Failed to republish message")
-					}
-				}
-				break
-			}
-		}
-	}
-}
-
-func (e *exporter) readMessages(streams []string) (map[string]messages.Msg, error) {
-	// Wait for messages in cache, blocking read
-	msgs, read, err := e.cache.ReadGroup(streams, exportGroup, count, e.id)
-
-	switch err {
-	case messages.ErrDecodingData:
-		e.logger.Error(fmt.Sprintf("Failed to decode all data from stream. Read: %d, Failed: %d, Batch: %d.", len(msgs), read, count))
-	default:
-		e.logger.Error(fmt.Sprintf("Failed to read from stream %s", err.Error()))
-		return nil, err
-	}
-	e.logger.Info(fmt.Sprintf("Read %d records from the stream", len(msgs)))
-	return msgs, nil
 }
 
 func (e *exporter) Subscribe(nc *nats.Conn) {
@@ -194,10 +126,6 @@ func (e *exporter) Subscribe(nc *nats.Conn) {
 }
 
 func (e *exporter) publish(topic string, payload []byte) error {
-	if e.connectionStatus() != connected {
-		e.logger.Error("not connected to mqtt broker")
-		return mqtt.ErrNotConnected
-	}
 	token := e.mqtt.Publish(topic, byte(e.cfg.MQTT.QoS), e.cfg.MQTT.Retain, payload)
 	if token.Wait() && token.Error() != nil {
 		e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
@@ -223,45 +151,11 @@ func (e *exporter) validateSubject(sub string) bool {
 }
 
 func (e *exporter) conn(client mqtt.Client) {
-	e.setConnected(connected)
 	e.logger.Debug(fmt.Sprintf("Client %s connected", e.id))
 }
 
 func (e *exporter) lost(client mqtt.Client, err error) {
-	e.setConnected(disconnected)
 	e.logger.Debug(fmt.Sprintf("Client %s disconnected", e.id))
-}
-
-// IsConnected returns a bool signifying whether the client is connected or not.
-func (e *exporter) IsConnected() bool {
-	e.RLock()
-	defer e.RUnlock()
-	switch {
-	case e.status == connected:
-		return true
-	default:
-		return false
-	}
-}
-
-func (e *exporter) connectionStatus() uint32 {
-	e.RLock()
-	defer e.RUnlock()
-	return e.status
-}
-
-func (e *exporter) setConnected(status uint32) {
-	e.Lock()
-	defer e.Unlock()
-	e.status = status
-	if e.cache != nil {
-		switch e.status {
-		case connected:
-			e.connected <- true
-		case disconnected:
-			e.connected <- false
-		}
-	}
 }
 
 func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.Client, error) {

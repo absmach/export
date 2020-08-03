@@ -21,7 +21,6 @@ import (
 	exp "github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/export"
 	"github.com/mainflux/export/pkg/export/api"
-	"github.com/mainflux/export/pkg/messages"
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
@@ -94,10 +93,7 @@ func main() {
 	}
 	defer nc.Close()
 
-	redisClient := connectToRedis(cfg.Server.CacheURL, cfg.Server.CachePass, cfg.Server.CacheDB, logger)
-	msgCache := messages.NewRedisCache(redisClient)
-
-	svc, err := export.New(cfg, msgCache, logger)
+	svc, err := export.New(cfg, logger)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create service :%s", err))
 		os.Exit(1)
