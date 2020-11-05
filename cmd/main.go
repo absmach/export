@@ -41,7 +41,9 @@ const (
 	defMqttMTLS       = "false"
 	defMqttCA         = "ca.crt"
 	defMqttQoS        = "0"
-	defMqttRetain     = false
+	defMqttRetain     = "false"
+	defMqttPersist    = "false"
+	defMqttPersistDir = "../mqtt_persist"
 	defMqttCert       = "thing.cert"
 	defMqttPrivKey    = "thing.key"
 	defConfigFile     = "../configs/config.toml"
@@ -63,6 +65,8 @@ const (
 	envMqttCA         = "MF_EXPORT_MQTT_CA"
 	envMqttQoS        = "MF_EXPORT_MQTT_QOS"
 	envMqttRetain     = "MF_EXPORT_MQTT_RETAIN"
+	envMqttPersist    = "MF_MQTT_PERSIST"
+	envMqttPersistDir = "MF_MQTT_PERSIST_FILE"
 	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
 	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
 	envConfigFile     = "MF_EXPORT_CONFIG_FILE"
@@ -141,9 +145,13 @@ func loadConfigs() (exp.Config, error) {
 		if err != nil {
 			mqttMTLS = false
 		}
-		mqttRetain, err := strconv.ParseBool(mainflux.Env(envMqttMTLS, defMqttMTLS))
+		mqttRetain, err := strconv.ParseBool(mainflux.Env(envMqttRetain, defMqttRetain))
 		if err != nil {
 			mqttRetain = false
+		}
+		mqttPersist, err := strconv.ParseBool(mainflux.Env(envMqttPersist, defMqttPersist))
+		if err != nil {
+			mqttPersist = false
 		}
 
 		q, err := strconv.ParseInt(mainflux.Env(envMqttQoS, defMqttQoS), 10, 64)
@@ -167,6 +175,8 @@ func loadConfigs() (exp.Config, error) {
 			Username: mainflux.Env(envMqttUsername, defMqttUsername),
 
 			Retain:     mqttRetain,
+			Persist:    mqttPersist,
+			PersistDir: mainflux.Env(envMqttPersistDir, defMqttPersistDir),
 			QoS:        QoS,
 			MTLS:       mqttMTLS,
 			SkipTLSVer: mqttSkipTLSVer,
