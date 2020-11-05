@@ -41,7 +41,7 @@ const (
 	defMqttMTLS       = "false"
 	defMqttCA         = "ca.crt"
 	defMqttQoS        = "0"
-	defMqttRetain     = false
+	defMqttRetain     = "false"
 	defMqttCert       = "thing.cert"
 	defMqttPrivKey    = "thing.key"
 	defConfigFile     = "../configs/config.toml"
@@ -141,7 +141,7 @@ func loadConfigs() (exp.Config, error) {
 		if err != nil {
 			mqttMTLS = false
 		}
-		mqttRetain, err := strconv.ParseBool(mainflux.Env(envMqttMTLS, defMqttMTLS))
+		mqttRetain, err := strconv.ParseBool(mainflux.Env(envMqttRetain, defMqttRetain))
 		if err != nil {
 			mqttRetain = false
 		}
