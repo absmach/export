@@ -83,7 +83,7 @@ func (r *Route) Process(data []byte) ([]byte, error) {
 
 }
 
-func (r *Route) Consume() {
+func (r Route) Consume() {
 	for msg := range r.Messages {
 		payload, err := r.Process(msg.Data)
 		if err != nil {
