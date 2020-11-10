@@ -39,7 +39,7 @@ type exporter struct {
 	id        string
 	mqtt      mqtt.Client
 	cfg       config.Config
-	consumers map[string]Route
+	consumers map[string]*Route
 	logger    logger.Logger
 	connected chan bool
 	status    uint32
@@ -62,7 +62,7 @@ var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service
 func New(c config.Config, l logger.Logger) (Service, error) {
-	routes := make(map[string]Route)
+	routes := make(map[string]*Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
 	e := exporter{
@@ -81,7 +81,7 @@ func New(c config.Config, l logger.Logger) (Service, error) {
 
 // Start method loads route configuration
 func (e *exporter) Start(queue string) errors.Error {
-	var route Route
+	var route *Route
 	for _, r := range e.cfg.Routes {
 		route = e.newRoute(r)
 		if !e.validateSubject(route.NatsTopic) {
@@ -109,7 +109,7 @@ func (e *exporter) Logger() logger.Logger {
 	return e.logger
 }
 
-func (e *exporter) newRoute(r config.Route) Route {
+func (e *exporter) newRoute(r config.Route) *Route {
 	return NewRoute(r, e.logger, e)
 }
 

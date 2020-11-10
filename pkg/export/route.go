@@ -48,12 +48,12 @@ type Route struct {
 	pub       messages.Publisher
 }
 
-func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) Route {
+func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) *Route {
 	w := rc.Workers
 	if w == 0 {
 		w = workers
 	}
-	r := Route{
+	r := &Route{
 		NatsTopic: rc.NatsTopic + "." + NatsAll,
 		MqttTopic: rc.MqttTopic,
 		Subtopic:  rc.SubTopic,
@@ -83,7 +83,7 @@ func (r *Route) Process(data []byte) ([]byte, error) {
 
 }
 
-func (r Route) Consume() {
+func (r *Route) Consume() {
 	for msg := range r.Messages {
 		payload, err := r.Process(msg.Data)
 		if err != nil {
