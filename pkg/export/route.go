@@ -48,12 +48,12 @@ type Route struct {
 	pub       messages.Publisher
 }
 
-func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) Route {
+func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) *Route {
 	w := rc.Workers
 	if w == 0 {
 		w = workers
 	}
-	r := Route{
+	r := &Route{
 		NatsTopic: rc.NatsTopic + "." + NatsAll,
 		MqttTopic: rc.MqttTopic,
 		Subtopic:  rc.SubTopic,
