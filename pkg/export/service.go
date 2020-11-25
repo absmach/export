@@ -162,7 +162,7 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 	opts := mqtt.NewClientOptions().
 		AddBroker(conf.MQTT.Host).
 		SetClientID(e.id).
-		SetCleanSession(false).
+		SetCleanSession(conf.MQTT.CleanSession).
 		SetAutoReconnect(true).
 		SetOnConnectHandler(e.conn).
 		SetConnectionLostHandler(e.lost)
@@ -170,6 +170,8 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 	if conf.MQTT.Persist {
 		store := mqtt.NewFileStore(conf.MQTT.PersistDir)
 		opts.SetStore(store)
+		//disable clean session because paho deletes stored messages when restarts
+		opts.SetCleanSession(false)
 	}
 
 	if conf.MQTT.Username != "" && conf.MQTT.Password != "" {

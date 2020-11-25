@@ -126,6 +126,7 @@ The service is configured using the environment variables presented in the follo
 | MF_EXPORT_MQTT_CLIENT_PK      | Client key for authentication in case when MTLS = true                                  | thing.key             |
 | MF_EXPORT_MQTT_QOS            | MQTT QOS                                                                                | 0                     |
 | MF_EXPORT_MQTT_RETAIN         | MQTT retain                                                                             | false                 |
+| MF_EXPORT_MQTT_CLEAN_SESSION  | MQTT clean session                                                                      | false                 |
 | MF_EXPORT_MQTT_PERSIST        | persist MQTT QOS 2 pending messages in filesystem, to avoid data loss                   | false                 |
 | MF_EXPORT_MQTT_PERSIST_DIR    | directory in which pending messages will be saved if persist is enabled                 | false                 |
 | MF_EXPORT_CONFIG_FILE         | Configuration file                                                                      | config.toml           |

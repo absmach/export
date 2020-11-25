@@ -29,24 +29,25 @@ import (
 )
 
 const (
-	svcName           = "export"
-	defNatsURL        = nats.DefaultURL
-	defLogLevel       = "debug"
-	defPort           = "8170"
-	defMqttHost       = "tcp://localhost:1883"
-	defMqttUsername   = ""
-	defMqttPassword   = ""
-	defMqttChannel    = ""
-	defMqttSkipTLSVer = "true"
-	defMqttMTLS       = "false"
-	defMqttCA         = "ca.crt"
-	defMqttQoS        = "0"
-	defMqttRetain     = "false"
-	defMqttPersist    = "false"
-	defMqttPersistDir = "../mqtt_persist"
-	defMqttCert       = "thing.cert"
-	defMqttPrivKey    = "thing.key"
-	defConfigFile     = "../configs/config.toml"
+	svcName             = "export"
+	defNatsURL          = nats.DefaultURL
+	defLogLevel         = "debug"
+	defPort             = "8170"
+	defMqttHost         = "tcp://localhost:1883"
+	defMqttUsername     = ""
+	defMqttPassword     = ""
+	defMqttChannel      = ""
+	defMqttSkipTLSVer   = "true"
+	defMqttMTLS         = "false"
+	defMqttCA           = "ca.crt"
+	defMqttQoS          = "0"
+	defMqttRetain       = "false"
+	defMqttCleanSession = "true"
+	defMqttPersist      = "false"
+	defMqttPersistDir   = "../mqtt_persist"
+	defMqttCert         = "thing.cert"
+	defMqttPrivKey      = "thing.key"
+	defConfigFile       = "../configs/config.toml"
 
 	defCacheURL  = "localhost:6379"
 	defCachePass = ""
@@ -56,20 +57,21 @@ const (
 	envLogLevel = "MF_EXPORT_LOG_LEVEL"
 	envPort     = "MF_EXPORT_PORT"
 
-	envMqttHost       = "MF_EXPORT_MQTT_HOST"
-	envMqttUsername   = "MF_EXPORT_MQTT_USERNAME"
-	envMqttPassword   = "MF_EXPORT_MQTT_PASSWORD"
-	envMqttChannel    = "MF_EXPORT_MQTT_CHANNEL"
-	envMqttSkipTLSVer = "MF_EXPORT_MQTT_SKIP_TLS"
-	envMqttMTLS       = "MF_EXPORT_MQTT_MTLS"
-	envMqttCA         = "MF_EXPORT_MQTT_CA"
-	envMqttQoS        = "MF_EXPORT_MQTT_QOS"
-	envMqttRetain     = "MF_EXPORT_MQTT_RETAIN"
-	envMqttPersist    = "MF_MQTT_PERSIST"
-	envMqttPersistDir = "MF_MQTT_PERSIST_FILE"
-	envMqttCert       = "MF_EXPORT_MQTT_CLIENT_CERT"
-	envMqttPrivKey    = "MF_EXPORT_MQTT_CLIENT_PK"
-	envConfigFile     = "MF_EXPORT_CONFIG_FILE"
+	envMqttHost         = "MF_EXPORT_MQTT_HOST"
+	envMqttUsername     = "MF_EXPORT_MQTT_USERNAME"
+	envMqttPassword     = "MF_EXPORT_MQTT_PASSWORD"
+	envMqttChannel      = "MF_EXPORT_MQTT_CHANNEL"
+	envMqttSkipTLSVer   = "MF_EXPORT_MQTT_SKIP_TLS"
+	envMqttMTLS         = "MF_EXPORT_MQTT_MTLS"
+	envMqttCA           = "MF_EXPORT_MQTT_CA"
+	envMqttQoS          = "MF_EXPORT_MQTT_QOS"
+	envMqttRetain       = "MF_EXPORT_MQTT_RETAIN"
+	envMqttCleanSession = "MF_EXPORT_MQTT_CLEAN_SESSION"
+	envMqttPersist      = "MF_MQTT_PERSIST"
+	envMqttPersistDir   = "MF_MQTT_PERSIST_FILE"
+	envMqttCert         = "MF_EXPORT_MQTT_CLIENT_CERT"
+	envMqttPrivKey      = "MF_EXPORT_MQTT_CLIENT_PK"
+	envConfigFile       = "MF_EXPORT_CONFIG_FILE"
 
 	envCacheURL  = "MF_EXPORT_CACHE_URL"
 	envCachePass = "MF_EXPORT_CACHE_PASS"
@@ -149,6 +151,10 @@ func loadConfigs() (exp.Config, error) {
 		if err != nil {
 			mqttRetain = false
 		}
+		mqttCleanSession, err := strconv.ParseBool(mainflux.Env(envMqttCleanSession, defMqttCleanSession))
+		if err != nil {
+			mqttRetain = false
+		}
 		mqttPersist, err := strconv.ParseBool(mainflux.Env(envMqttPersist, defMqttPersist))
 		if err != nil {
 			mqttPersist = false
@@ -174,12 +180,13 @@ func loadConfigs() (exp.Config, error) {
 			Password: mainflux.Env(envMqttPassword, defMqttPassword),
 			Username: mainflux.Env(envMqttUsername, defMqttUsername),
 
-			Retain:     mqttRetain,
-			Persist:    mqttPersist,
-			PersistDir: mainflux.Env(envMqttPersistDir, defMqttPersistDir),
-			QoS:        QoS,
-			MTLS:       mqttMTLS,
-			SkipTLSVer: mqttSkipTLSVer,
+			Retain:       mqttRetain,
+			CleanSession: mqttCleanSession,
+			Persist:      mqttPersist,
+			PersistDir:   mainflux.Env(envMqttPersistDir, defMqttPersistDir),
+			QoS:          QoS,
+			MTLS:         mqttMTLS,
+			SkipTLSVer:   mqttSkipTLSVer,
 
 			CAPath:            mainflux.Env(envMqttCA, defMqttCA),
 			ClientCertPath:    mainflux.Env(envMqttCert, defMqttCert),

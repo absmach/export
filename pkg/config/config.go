@@ -31,6 +31,7 @@ type MQTT struct {
 	MTLS              bool            `json:"mtls" toml:"mtls" mapstructure:"mtls"`
 	SkipTLSVer        bool            `json:"skip_tls_ver" toml:"skip_tls_ver" mapstructure:"skip_tls_ver"`
 	Retain            bool            `json:"retain" toml:"retain" mapstructure:"retain"`
+	CleanSession      bool            `json:"clean_session" toml:"clean_session" mapstructure:"clean_session"`
 	Persist           bool            `json:"persist" toml:"persist" mapstructure:"persist"`
 	PersistDir        string          `json:"persist_dir" toml:"persist_dir" mapstructure:"persist_dir"`
 	QoS               int             `json:"qos" toml:"qos" mapstructure:"qos"`
