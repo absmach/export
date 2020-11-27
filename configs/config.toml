@@ -19,6 +19,9 @@ File = "/configs/export/config.toml"
   password = ""
   qos = 0
   retain = false
+  clean_session = true
+  persist = false
+  persist_dir = "../mqtt_persist"
   skip_tls_ver = true
   username = ""
 
