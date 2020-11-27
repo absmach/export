@@ -170,7 +170,7 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 	if conf.MQTT.Persist {
 		store := mqtt.NewFileStore(conf.MQTT.PersistDir)
 		opts.SetStore(store)
-		//disable clean session because paho deletes stored messages when restarts
+		// Paho deletes persisted messages when restarts with clean session, so it is set to false
 		opts.SetCleanSession(false)
 	}
 
