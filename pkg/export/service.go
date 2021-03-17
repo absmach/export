@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/pkg/config"
@@ -126,11 +127,17 @@ func (e *exporter) Subscribe(nc *nats.Conn) {
 }
 
 func (e *exporter) publish(topic string, payload []byte) error {
-	token := e.mqtt.Publish(topic, byte(e.cfg.MQTT.QoS), e.cfg.MQTT.Retain, payload)
-	if token.Wait() && token.Error() != nil {
-		e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
-		return token.Error()
-	}
+	go func() {
+		token := e.mqtt.Publish(topic, byte(e.cfg.MQTT.QoS), e.cfg.MQTT.Retain, payload)
+		publishedInTime := token.WaitTimeout(3 * time.Second)
+		if publishedInTime && token.Error() != nil {
+			e.logger.Error(fmt.Sprintf("Failed to publish to topic %s", topic))
+			return
+		}
+		if !publishedInTime {
+			e.logger.Warn(fmt.Sprintf("Message in topic %s is taking a long time to be published", topic))
+		}
+	}()
 	return nil
 }
 
