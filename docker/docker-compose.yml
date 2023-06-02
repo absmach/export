@@ -38,6 +38,6 @@ services:
     networks:
       - docker_mainflux-base-net
     volumes:
-      - ./config.toml:/config.toml
+      - ../configs/config.toml:/config.toml
       - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt
 
