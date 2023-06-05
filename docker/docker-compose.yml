@@ -1,11 +1,6 @@
 # Copyright (c) Mainflux
 # SPDX-License-Identifier: Apache-2.0
 
-# This docker-compose file contains optional InfluxDB, InfluxDB-writer and Grafana services
-# for the Mainflux platform. Since this services are optional, this file is dependent on the
-# docker-compose.yml file from <project_root>/docker/. In order to run these services,
-# core services, as well as the network from the core composition, should be already running.
-
 version: "3.7"
 
 networks:
@@ -22,7 +17,7 @@ services:
     restart: on-failure
     environment:
       MF_NATS_URL: ${MF_NATS_URL}
-      MF_EXPORT_CONFIG_FILE: ${MF_EXPORT_CONFIG_FILE}
+      #MF_EXPORT_CONFIG_FILE: ${MF_EXPORT_CONFIG_FILE}
       MF_EXPORT_MQTT_HOST: ${MF_EXPORT_MQTT_HOST}
       MF_EXPORT_MQTT_USERNAME: ${MF_EXPORT_MQTT_USERNAME}
       MF_EXPORT_MQTT_PASSWORD: ${MF_EXPORT_MQTT_PASSWORD}

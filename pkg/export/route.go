@@ -11,9 +11,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
-	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
-	"github.com/mainflux/mainflux/messaging"
+	"github.com/mainflux/mainflux/pkg/errors"
+	"github.com/mainflux/mainflux/pkg/messaging"
 	nats "github.com/nats-io/nats.go"
 )
 

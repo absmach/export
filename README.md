@@ -92,18 +92,7 @@ Before running `Export` service edit `configs/config.toml` and provide `username
  * `password` - matches `thing_key`
  * `channel` - MQTT part of the topic where to publish MQTT data (`channel/<channel_id>/messages` is format of mainflux MQTT topic) and plays a part in authorization.
 
-In order for `Export` service to listen on Mainflux NATS deployed on the same machine NATS port must be exposed.
-Edit Mainflux [docker-compose.yml][docker-compose]. NATS section must look like below:
-```
-  nats:
-    image: nats:1.3.0
-    container_name: mainflux-nats
-    restart: on-failure
-    networks:
-      - mainflux-base-net
-    ports:
-      - 4222:4222
-```
+In order for `Export` service to listen on Mainflux NATS deployed on the same machine NATS port must be exposed. Run mainflux using `make run`.
   
 ## Environment variables
 

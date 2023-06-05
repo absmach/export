@@ -13,8 +13,8 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
-	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
+	"github.com/mainflux/mainflux/pkg/errors"
 	nats "github.com/nats-io/nats.go"
 )
 

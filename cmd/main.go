@@ -22,8 +22,8 @@ import (
 	"github.com/mainflux/export/pkg/export"
 	"github.com/mainflux/export/pkg/export/api"
 	"github.com/mainflux/mainflux"
-	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
+	"github.com/mainflux/mainflux/pkg/errors"
 	nats "github.com/nats-io/nats.go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )

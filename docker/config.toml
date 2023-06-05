@@ -5,22 +5,22 @@ File = "/configs/export/config.toml"
   cache_pass = ""
   cache_url = "localhost:6379"
   log_level = "debug"
-  nats = "nats://127.0.0.1:4222"
+  nats = "nats://broker:4222"
   port = "8170"
 
 [mqtt]
-  ca_path = "ca.crt"
+  ca_path = ""
   client_cert = ""
   client_cert_key = ""
-  client_cert_path = "thing.crt"
-  client_priv_key_path = "thing.key"
-  host = "tcp://localhost:1883"
+  client_cert_path = ""
+  client_priv_key_path = ""
+  host = "tcp://mqtt-adapter:1883"
   mtls = false
-  password = ""
+  password = "7c655598-38bf-46de-abba-f1b377461a44"
   qos = 0
   retain = false
   skip_tls_ver = true
-  username = ""
+  username = "bff01a80-a16d-4828-abe2-30e8f3f27b83"
 
 [[routes]]
   mqtt_topic = "channels/05ff7d0b-62be-433a-9eff-cd963b4c6b5d/messages"
