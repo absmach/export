@@ -1,4 +1,10 @@
 # Export
+
+![ci][ci]
+![build][build]
+![Go Report Card][grc]
+[![License][LIC-BADGE]][LIC]
+
 Mainflux Export service can send message from one Mainflux cloud to another via MQTT, or it can send messages from edge gateway to Mainflux Cloud.
 Export service is subscribed to local message bus and connected to MQTT broker in the cloud.  
 Messages collected on local message bus are redirected to the cloud.
@@ -156,3 +162,9 @@ payload := base64.StdEncoding.EncodeToString(b)
 [conftoml]: (https://github.com/mainflux/export/blob/master/configs/config.toml)
 [docker-compose]: (https://github.com/mainflux/mainflux/docker/docker-compose.yml)
 [agent]: (https://github.com/mainflux/agent)
+
+[grc]: https://goreportcard.com/badge/github.com/mainflux/export
+[ci]: https://github.com/mainflux/export/actions/workflows/ci.yml/badge.svg
+[build]: https://github.com/mainflux/export/actions/workflows/go.yml/badge.svg
+[LIC]: LICENCE
+[LIC-BADGE]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
