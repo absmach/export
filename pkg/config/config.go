@@ -8,7 +8,7 @@ package config
 import (
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/mainflux/mainflux/pkg/errors"
 	"github.com/pelletier/go-toml"
@@ -75,7 +75,7 @@ func Save(c Config) error {
 	if c.File != "" {
 		file = c.File
 	}
-	if err := ioutil.WriteFile(file, b, 0644); err != nil {
+	if err := os.WriteFile(file, b, 0644); err != nil {
 		return errors.Wrap(errWritingConfigFile, err)
 	}
 
@@ -85,7 +85,7 @@ func Save(c Config) error {
 // ReadFile - retrieve config from a file
 func ReadFile(file string) (Config, error) {
 	c := Config{}
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return c, errors.Wrap(errReadConfigFile, err)
 	}

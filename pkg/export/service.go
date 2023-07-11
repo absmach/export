@@ -18,10 +18,7 @@ import (
 	nats "github.com/nats-io/nats.go"
 )
 
-var (
-	errNoCacheConfigured   = errors.New("No cache configured")
-	errFailedToAddToStream = errors.New("Failed to add to redis stream")
-)
+var errNoCacheConfigured = errors.New("No cache configured")
 
 type Exporter interface {
 	Start(queue string) errors.Error
@@ -41,8 +38,6 @@ type exporter struct {
 	cfg       config.Config
 	consumers map[string]*Route
 	logger    logger.Logger
-	connected chan bool
-	status    uint32
 	sync.RWMutex
 }
 
@@ -185,7 +180,6 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 			cfg.Certificates = []tls.Certificate{conf.MQTT.TLSCert}
 		}
 
-		cfg.BuildNameToCertificate()
 		opts.SetTLSConfig(cfg)
 		opts.SetProtocolVersion(4)
 	}

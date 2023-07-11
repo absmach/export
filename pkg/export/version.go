@@ -21,11 +21,16 @@ type VersionInfo struct {
 
 // Version exposes an HTTP handler for retrieving service version.
 func Version() http.HandlerFunc {
-	return http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		res := VersionInfo{"export", version}
 
-		data, _ := json.Marshal(res)
+		data, err := json.Marshal(res)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 
-		rw.Write(data)
+		if _, err = w.Write(data); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	})
 }
