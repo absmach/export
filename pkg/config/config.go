@@ -65,7 +65,7 @@ type Route struct {
 	Workers   int    `json:"workers" toml:"workers" mapstructure:"workers"`
 }
 
-// Save - store config in a file
+// Save - store config in a file.
 func Save(c Config) error {
 	b, err := toml.Marshal(c)
 	if err != nil {
@@ -82,7 +82,7 @@ func Save(c Config) error {
 	return nil
 }
 
-// ReadFile - retrieve config from a file
+// ReadFile - retrieve config from a file.
 func ReadFile(file string) (Config, error) {
 	c := Config{}
 	data, err := os.ReadFile(file)
@@ -96,7 +96,7 @@ func ReadFile(file string) (Config, error) {
 	return c, nil
 }
 
-// ReadBytes - read config from a bytes
+// ReadBytes - read config from a bytes.
 func ReadBytes(data []byte) (Config, error) {
 	c := Config{}
 	e := toml.Unmarshal(data, &c)

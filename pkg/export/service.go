@@ -55,7 +55,7 @@ const (
 
 var errNoRoutesConfigured = errors.New("No routes configured")
 
-// New create new instance of export service
+// New create new instance of export service.
 func New(c config.Config, l logger.Logger) (Service, error) {
 	routes := make(map[string]*Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
@@ -74,7 +74,7 @@ func New(c config.Config, l logger.Logger) (Service, error) {
 	return &e, nil
 }
 
-// Start method loads route configuration
+// Start method loads route configuration.
 func (e *exporter) Start(queue string) errors.Error {
 	var route *Route
 	for _, r := range e.cfg.Routes {
