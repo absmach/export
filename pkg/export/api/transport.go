@@ -18,7 +18,6 @@ import (
 // MakeHandler returns a HTTP API handler with version and metrics.
 func MakeHandler(svc export.Service) http.Handler {
 	r := bone.New()
-	r.GetFunc("/version", export.Version())
 	r.Handle("/metrics", promhttp.Handler())
 	r.GetFunc("/health", mainflux.Health("export"))
 	return r
