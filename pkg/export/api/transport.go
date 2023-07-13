@@ -19,6 +19,6 @@ import (
 func MakeHandler(svc export.Service) http.Handler {
 	r := bone.New()
 	r.Handle("/metrics", promhttp.Handler())
-	r.GetFunc("/health", mainflux.Health("export"))
+	r.GetFunc("/health", mainflux.Health("export", ""))
 	return r
 }

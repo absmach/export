@@ -9,7 +9,12 @@ CGO_ENABLED ?= 0
 GOARCH ?= amd64
 
 define compile_service
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) go build -ldflags "-s -w" -o ${BUILD_DIR}/mainflux-$(1) cmd/main.go
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
+	go build -mod=vendor -tags -ldflags "-s -w \
+	-X 'github.com/mainflux/mainflux.BuildTime=$(TIME)' \
+	-X 'github.com/mainflux/mainflux.Version=$(VERSION)' \
+	-X 'github.com/mainflux/mainflux.Commit=$(COMMIT)'" \
+	-o ${BUILD_DIR}/mainflux-$(1) cmd/main.go
 endef
 
 define make_docker
