@@ -28,6 +28,9 @@ define make_docker
 		--build-arg SVC=$(svc) \
 		--build-arg GOARCH=$(GOARCH) \
 		--build-arg GOARM=$(GOARM) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg TIME=$(TIME) \
 		--tag=mainflux/$(svc) \
 		-f docker/Dockerfile .
 endef

@@ -11,18 +11,18 @@ EXPORT_CONFIG_FILE='./configs/export-config.toml'
 
 if [ "$MTLS" == true ]; then
     token=`curl -s -S -X POST https://${MAINFLUX_HOST}/tokens -d "{\"email\":\"${MAINFLUX_USER_EMAIL}\",\"password\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .token`
-    bootstrapResponse=`curl -s -S -X GET https://${MAINFLUX_HOST}/bootstrap/things/bootstrap/${EXTERNAL_ID} -H "Authorization: ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
+    bootstrapResponse=`curl -s -S -X GET https://${MAINFLUX_HOST}/bootstrap/things/bootstrap/${EXTERNAL_ID} -H "Authorization: Thing ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
     thingID=`echo "${bootstrapResponse}" | jq -r .mainflux_id`
-    exportChannel=`curl -s -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: ${token}" | jq -r .metadata.export_channel_id`
+    exportChannel=`curl -s -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" | jq -r .metadata.export_channel_id`
     clientKey=`echo "${bootstrapResponse}" | jq -r .client_key`
     clientCert=$(echo "${bootstrapResponse}" | jq -r .client_cert)
     caCert=`echo "${bootstrapResponse}" | jq -r .ca_cert`
     mqttHost="tcps://${MAINFLUX_HOST}:8883"
 else
     token=`curl -s --insecure -S -X POST https://${MAINFLUX_HOST}/tokens -d "{\"email\":\"${MAINFLUX_USER_EMAIL}\",\"password\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .token`
-    bootstrapResponse=`curl -s -S -X GET http://${MAINFLUX_HOST}:8202/things/bootstrap/${EXTERNAL_ID} -H "Authorization: ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
+    bootstrapResponse=`curl -s -S -X GET http://${MAINFLUX_HOST}:9013/things/bootstrap/${EXTERNAL_ID} -H "Authorization: Thing ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
     thingID=`echo "${bootstrapResponse}" | jq -r .mainflux_id`
-    exportChannel=`curl -s --insecure -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: ${token}" | jq -r .metadata.export_channel_id`
+    exportChannel=`curl -s --insecure -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" | jq -r .metadata.export_channel_id`
     clientKey=""
     clientCert=""
     caCert=""
