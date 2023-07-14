@@ -19,7 +19,7 @@ if [ "$MTLS" == true ]; then
     caCert=`echo "${bootstrapResponse}" | jq -r .ca_cert`
     mqttHost="tcps://${MAINFLUX_HOST}:8883"
 else
-    token=`curl -s --insecure -S -X POST https://${MAINFLUX_HOST}/tokens/issue -d "{\"identity\":\"${MAINFLUX_USER_EMAIL}\",\"secret\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .access_token`
+    token=`curl -s --insecure -S -X POST https://${MAINFLUX_HOST}/users/tokens/issue -d "{\"identity\":\"${MAINFLUX_USER_EMAIL}\",\"secret\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .access_token`
     bootstrapResponse=`curl -s -S -X GET http://${MAINFLUX_HOST}:9013/things/bootstrap/${EXTERNAL_ID} -H "Authorization: Thing ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
     thingID=`echo "${bootstrapResponse}" | jq -r .mainflux_id`
     exportChannel=`curl -s --insecure -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" | jq -r .metadata.export_channel_id`
