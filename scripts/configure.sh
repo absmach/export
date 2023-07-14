@@ -10,7 +10,7 @@ EXPORT_CONFIG_FILE_TMPL='./configs/export-config.toml.tmpl'
 EXPORT_CONFIG_FILE='./configs/export-config.toml'
 
 if [ "$MTLS" == true ]; then
-    token=`curl -s -S -X POST https://${MAINFLUX_HOST}/tokens/issue -d "{\"identity\":\"${MAINFLUX_USER_EMAIL}\",\"secret\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .access_token`
+    token=`curl -s -S -X POST https://${MAINFLUX_HOST}/users/tokens/issue -d "{\"identity\":\"${MAINFLUX_USER_EMAIL}\",\"secret\":\"${MAINFLUX_USER_PASSWORD}\"}" -H 'Content-Type: application/json' |jq -r .access_token`
     bootstrapResponse=`curl -s -S -X GET https://${MAINFLUX_HOST}/bootstrap/things/bootstrap/${EXTERNAL_ID} -H "Authorization: Thing ${EXTERNAL_KEY}" -H 'Content-Type: application/json'`
     thingID=`echo "${bootstrapResponse}" | jq -r .mainflux_id`
     exportChannel=`curl -s -S -X GET https://${MAINFLUX_HOST}/things/${thingID}  -H 'Content-Type: application/json' -H "Authorization: Bearer ${token}" | jq -r .metadata.export_channel_id`
