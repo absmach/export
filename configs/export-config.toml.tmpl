@@ -3,16 +3,16 @@
   cache_pass = ""
   cache_url = "localhost:6379"
   log_level = "debug"
-  nats = "nats://127.0.0.1:4222"
+  nats = "nats://broker:4222"
   port = "8170"
 
 [mqtt]
-  ca_path = "ca.crt"
+  ca_path = ""
   client_cert = ""
   client_cert_key = ""
   client_cert_path = ""
   client_priv_key_path = ""
-  host = "tcp://localhost:8883"
+  host = "tcp://mqtt-adapter:8883"
   mtls = true
   password = ""
   qos = 0

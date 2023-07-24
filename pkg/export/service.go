@@ -13,15 +13,12 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/messages"
-	"github.com/mainflux/mainflux/errors"
 	logger "github.com/mainflux/mainflux/logger"
+	"github.com/mainflux/mainflux/pkg/errors"
 	nats "github.com/nats-io/nats.go"
 )
 
-var (
-	errNoCacheConfigured   = errors.New("No cache configured")
-	errFailedToAddToStream = errors.New("Failed to add to redis stream")
-)
+var errNoCacheConfigured = errors.New("No cache configured")
 
 type Exporter interface {
 	Start(queue string) errors.Error
@@ -41,26 +38,20 @@ type exporter struct {
 	cfg       config.Config
 	consumers map[string]*Route
 	logger    logger.Logger
-	connected chan bool
-	status    uint32
 	sync.RWMutex
 }
 
 const (
-	disconnected uint32 = iota
-	connected
 	exportGroup = "export"
-	count       = 100
-
-	NatsSub  = "export"
-	NatsAll  = ">"
-	Channels = "channels"
-	Messages = "messages"
+	NatsSub     = "export"
+	NatsAll     = ">"
+	Channels    = "channels"
+	Messages    = "messages"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
 
-// New create new instance of export service
+// New create new instance of export service.
 func New(c config.Config, l logger.Logger) (Service, error) {
 	routes := make(map[string]*Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
@@ -79,7 +70,7 @@ func New(c config.Config, l logger.Logger) (Service, error) {
 	return &e, nil
 }
 
-// Start method loads route configuration
+// Start method loads route configuration.
 func (e *exporter) Start(queue string) errors.Error {
 	var route *Route
 	for _, r := range e.cfg.Routes {
@@ -185,7 +176,6 @@ func (e *exporter) mqttConnect(conf config.Config, logger logger.Logger) (mqtt.C
 			cfg.Certificates = []tls.Certificate{conf.MQTT.TLSCert}
 		}
 
-		cfg.BuildNameToCertificate()
 		opts.SetTLSConfig(cfg)
 		opts.SetProtocolVersion(4)
 	}

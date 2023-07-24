@@ -1,4 +1,10 @@
 # Export
+
+![ci][ci]
+![build][build]
+![Go Report Card][grc]
+[![License][LIC-BADGE]][LIC]
+
 Mainflux Export service can send message from one Mainflux cloud to another via MQTT, or it can send messages from edge gateway to Mainflux Cloud.
 Export service is subscribed to local message bus and connected to MQTT broker in the cloud.  
 Messages collected on local message bus are redirected to the cloud.
@@ -92,18 +98,7 @@ Before running `Export` service edit `configs/config.toml` and provide `username
  * `password` - matches `thing_key`
  * `channel` - MQTT part of the topic where to publish MQTT data (`channel/<channel_id>/messages` is format of mainflux MQTT topic) and plays a part in authorization.
 
-In order for `Export` service to listen on Mainflux NATS deployed on the same machine NATS port must be exposed.
-Edit Mainflux [docker-compose.yml][docker-compose]. NATS section must look like below:
-```
-  nats:
-    image: nats:1.3.0
-    container_name: mainflux-nats
-    restart: on-failure
-    networks:
-      - mainflux-base-net
-    ports:
-      - 4222:4222
-```
+In order for `Export` service to listen on Mainflux NATS deployed on the same machine NATS port must be exposed. Run mainflux using `make run`.
   
 ## Environment variables
 
@@ -167,3 +162,9 @@ payload := base64.StdEncoding.EncodeToString(b)
 [conftoml]: (https://github.com/mainflux/export/blob/master/configs/config.toml)
 [docker-compose]: (https://github.com/mainflux/mainflux/docker/docker-compose.yml)
 [agent]: (https://github.com/mainflux/agent)
+
+[grc]: https://goreportcard.com/badge/github.com/mainflux/export
+[ci]: https://github.com/mainflux/export/actions/workflows/ci.yml/badge.svg
+[build]: https://github.com/mainflux/export/actions/workflows/go.yml/badge.svg
+[LIC]: LICENCE
+[LIC-BADGE]: https://img.shields.io/badge/License-Apache_2.0-blue.svg

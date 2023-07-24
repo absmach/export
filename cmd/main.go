@@ -6,7 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,17 +15,14 @@ import (
 	"syscall"
 	"time"
 
-	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
-	"github.com/go-redis/redis"
 	"github.com/mainflux/export/pkg/config"
 	exp "github.com/mainflux/export/pkg/config"
 	"github.com/mainflux/export/pkg/export"
 	"github.com/mainflux/export/pkg/export/api"
 	"github.com/mainflux/mainflux"
-	"github.com/mainflux/mainflux/errors"
 	"github.com/mainflux/mainflux/logger"
+	"github.com/mainflux/mainflux/pkg/errors"
 	nats "github.com/nats-io/nats.go"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -96,11 +93,11 @@ func main() {
 	svc, err := export.New(cfg, logger)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create service :%s", err))
-		os.Exit(1)
+		return
 	}
 	if err := svc.Start(svcName); err != nil {
 		logger.Error(fmt.Sprintf("Failed to start service %s", err))
-		os.Exit(1)
+		return
 	}
 	svc.Subscribe(nc)
 
@@ -117,10 +114,9 @@ func main() {
 
 	errs := make(chan error, 2)
 	go func() {
-		c := make(chan os.Signal)
+		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT)
 		errs <- fmt.Errorf("%s", <-c)
-
 	}()
 
 	go startHTTPService(svc, cfg.Server.Port, logger, errs)
@@ -196,9 +192,9 @@ func loadConfigs() (exp.Config, error) {
 		}
 
 		if err := exp.Save(cfg); err != nil {
-			log.Println(fmt.Sprintf("Failed to save %s", err))
+			log.Printf("Failed to save %s\n", err)
 		}
-		log.Println(fmt.Sprintf("Configuration loaded from environment, initial %s saved", configFile))
+		log.Printf("Configuration loaded from environment, initial %s saved\n", configFile)
 		return cfg, nil
 	}
 	mqtt, err := loadCertificate(cfg.MQTT)
@@ -206,7 +202,7 @@ func loadConfigs() (exp.Config, error) {
 		return cfg, err
 	}
 	cfg.MQTT = mqtt
-	log.Println(fmt.Sprintf("Configuration loaded from file %s", configFile))
+	log.Printf("Configuration loaded from file %s\n", configFile)
 	return cfg, nil
 }
 
@@ -214,8 +210,7 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 	var caByte []byte
 	var cc []byte
 	var pk []byte
-	cert := tls.Certificate{}
-	if cfg.MTLS == false {
+	if !cfg.MTLS {
 		return cfg, nil
 	}
 
@@ -224,7 +219,7 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 		return cfg, errors.New(err.Error())
 	}
 	defer caFile.Close()
-	caByte, _ = ioutil.ReadAll(caFile)
+	caByte, _ = io.ReadAll(caFile)
 
 	if cfg.ClientCertPath != "" {
 		clientCert, err := os.Open(cfg.ClientCertPath)
@@ -232,7 +227,7 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 			return cfg, errors.New(err.Error())
 		}
 		defer clientCert.Close()
-		cc, err = ioutil.ReadAll(clientCert)
+		cc, err = io.ReadAll(clientCert)
 		if err != nil {
 			return cfg, err
 		}
@@ -244,11 +239,11 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 
 	if cfg.ClientPrivKeyPath != "" {
 		privKey, err := os.Open(cfg.ClientPrivKeyPath)
-		defer privKey.Close()
 		if err != nil {
 			return cfg, errors.New(err.Error())
 		}
-		pk, err = ioutil.ReadAll((privKey))
+		defer privKey.Close()
+		pk, err = io.ReadAll((privKey))
 		if err != nil {
 			return cfg, err
 		}
@@ -262,7 +257,7 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 		return cfg, errors.New("failed loading client certificate")
 	}
 
-	cert, err = tls.X509KeyPair([]byte(cc), []byte(pk))
+	cert, err := tls.X509KeyPair([]byte(cc), []byte(pk))
 	if err != nil {
 		return cfg, errors.New(err.Error())
 	}
@@ -273,40 +268,8 @@ func loadCertificate(cfg exp.MQTT) (exp.MQTT, error) {
 	return cfg, nil
 }
 
-func makeMetrics() (*kitprometheus.Counter, *kitprometheus.Summary) {
-	counter := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
-		Namespace: "export",
-		Subsystem: "message_writer",
-		Name:      "request_count",
-		Help:      "Number of database inserts.",
-	}, []string{"method"})
-
-	latency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-		Namespace: "export",
-		Subsystem: "message_writer",
-		Name:      "request_latency_microseconds",
-		Help:      "Total duration of inserts in microseconds.",
-	}, []string{"method"})
-
-	return counter, latency
-}
-
 func startHTTPService(svc export.Service, port string, logger logger.Logger, errs chan error) {
 	p := fmt.Sprintf(":%s", port)
 	logger.Info(fmt.Sprintf("Export service started, exposed port %s", p))
 	errs <- http.ListenAndServe(p, api.MakeHandler(svc))
-}
-
-func connectToRedis(cacheURL, cachePass string, cacheDB string, logger logger.Logger) *redis.Client {
-	db, err := strconv.Atoi(cacheDB)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to connect to cache: %s", err))
-		return nil
-	}
-
-	return redis.NewClient(&redis.Options{
-		Addr:     cacheURL,
-		Password: cachePass,
-		DB:       db,
-	})
 }
