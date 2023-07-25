@@ -14,7 +14,6 @@ import (
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/mainflux/pkg/errors"
 	"github.com/mainflux/mainflux/pkg/messaging"
-	nats "github.com/nats-io/nats.go"
 )
 
 const (
@@ -41,7 +40,7 @@ type Route struct {
 	NatsTopic string
 	MqttTopic string
 	Subtopic  string
-	Messages  chan *nats.Msg
+	Messages  chan *messaging.Message
 	Workers   int
 	Type      string
 	logger    logger.Logger
@@ -59,7 +58,7 @@ func NewRoute(rc config.Route, log logger.Logger, pub messages.Publisher) *Route
 		Subtopic:  rc.SubTopic,
 		Type:      rc.Type,
 		Workers:   w,
-		Messages:  make(chan *nats.Msg, w),
+		Messages:  make(chan *messaging.Message, w),
 		logger:    log,
 		pub:       pub,
 	}
@@ -85,7 +84,7 @@ func (r *Route) Process(data []byte) ([]byte, error) {
 
 func (r *Route) Consume() {
 	for msg := range r.Messages {
-		payload, err := r.Process(msg.Data)
+		payload, err := r.Process(msg.Payload)
 		if err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to consume message %s", err))
 		}
@@ -93,11 +92,11 @@ func (r *Route) Consume() {
 		if r.Subtopic != "" {
 			topic = fmt.Sprintf("%s/%s", r.MqttTopic, r.Subtopic)
 		}
-		topic = fmt.Sprintf("%s/%s", topic, strings.ReplaceAll(msg.Subject, ".", "/"))
-		if err := r.pub.Publish(msg.Subject, topic, payload); err != nil {
+		topic = fmt.Sprintf("%s/%s", topic, strings.ReplaceAll(msg.Channel, ".", "/"))
+		if err := r.pub.Publish(msg.Channel, topic, payload); err != nil {
 			r.logger.Error(fmt.Sprintf("Failed to publish on route %s: %s", r.MqttTopic, err))
 		}
-		r.msgDebug(msg.Subject, payload)
+		r.msgDebug(msg.Channel, payload)
 	}
 }
 

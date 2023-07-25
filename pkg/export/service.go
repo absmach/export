@@ -4,6 +4,7 @@
 package export
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -15,14 +16,14 @@ import (
 	"github.com/mainflux/export/pkg/messages"
 	logger "github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/mainflux/pkg/errors"
-	nats "github.com/nats-io/nats.go"
+	"github.com/mainflux/mainflux/pkg/messaging"
 )
 
 var errNoCacheConfigured = errors.New("No cache configured")
 
 type Exporter interface {
 	Start(queue string) errors.Error
-	Subscribe(nc *nats.Conn)
+	Subscribe(ctx context.Context)
 	Logger() logger.Logger
 }
 type Service interface {
@@ -38,6 +39,7 @@ type exporter struct {
 	cfg       config.Config
 	consumers map[string]*Route
 	logger    logger.Logger
+	pubsub    messaging.PubSub
 	sync.RWMutex
 }
 
@@ -47,12 +49,13 @@ const (
 	NatsAll     = ">"
 	Channels    = "channels"
 	Messages    = "messages"
+	svcName     = "export"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
 
 // New create new instance of export service.
-func New(c config.Config, l logger.Logger) (Service, error) {
+func New(c config.Config, l logger.Logger, pubsub messaging.PubSub) (Service, error) {
 	routes := make(map[string]*Route)
 	id := fmt.Sprintf("export-%s", c.MQTT.Username)
 
@@ -61,6 +64,7 @@ func New(c config.Config, l logger.Logger) (Service, error) {
 		logger:    l,
 		cfg:       c,
 		consumers: routes,
+		pubsub:    pubsub,
 	}
 	client, err := e.mqttConnect(c, l)
 	if err != nil {
@@ -104,10 +108,27 @@ func (e *exporter) newRoute(r config.Route) *Route {
 	return NewRoute(r, e.logger, e)
 }
 
-func (e *exporter) Subscribe(nc *nats.Conn) {
+type handleFunc func(msg *messaging.Message) error
+
+func (h handleFunc) Handle(msg *messaging.Message) error {
+	return h(msg)
+
+}
+
+func (h handleFunc) Cancel() error {
+	return nil
+}
+
+func handle(mesChan chan *messaging.Message) handleFunc {
+	return func(msg *messaging.Message) error {
+		mesChan <- msg
+		return nil
+	}
+}
+
+func (e *exporter) Subscribe(ctx context.Context) {
 	for _, r := range e.consumers {
-		_, err := nc.ChanQueueSubscribe(r.NatsTopic, exportGroup, r.Messages)
-		if err != nil {
+		if err := e.pubsub.Subscribe(ctx, svcName, r.NatsTopic, handle(r.Messages)); err != nil {
 			e.logger.Error(fmt.Sprintf("Failed to subscribe to NATS %s: %s", r.NatsTopic, err))
 		}
 		for i := 0; i < r.Workers; i++ {
