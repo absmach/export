@@ -30,7 +30,7 @@ import (
 
 const (
 	svcName           = "export"
-	defNatsURL        = nats.DefaultURL
+	defBrokerURL      = nats.DefaultURL
 	defLogLevel       = "debug"
 	defPort           = "8170"
 	defMqttHost       = "tcp://localhost:1883"
@@ -50,9 +50,9 @@ const (
 	defCachePass = ""
 	defCacheDB   = "0"
 
-	envNatsURL  = "MF_NATS_URL"
-	envLogLevel = "MF_EXPORT_LOG_LEVEL"
-	envPort     = "MF_EXPORT_PORT"
+	envBrokerURL = "MF_BROKER_URL"
+	envLogLevel  = "MF_EXPORT_LOG_LEVEL"
+	envPort      = "MF_EXPORT_PORT"
 
 	envMqttHost       = "MF_EXPORT_MQTT_HOST"
 	envMqttUsername   = "MF_EXPORT_MQTT_USERNAME"
@@ -152,7 +152,7 @@ func loadConfigs() (exp.Config, error) {
 		QoS := int(q)
 
 		sc := exp.Server{
-			BrokerURL: mainflux.Env(envNatsURL, defNatsURL),
+			BrokerURL: mainflux.Env(envBrokerURL, defBrokerURL),
 			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
 			Port:      mainflux.Env(envPort, defPort),
 			CachePass: mainflux.Env(envCachePass, defCachePass),
