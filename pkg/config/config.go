@@ -42,7 +42,7 @@ type MQTT struct {
 }
 
 type Server struct {
-	BrokerURL string `json:"broker" toml:"broker" mapstructure:"broker"`
+	BrokerURL string `json:"broker_url" toml:"broker_url" mapstructure:"broker_url"`
 	LogLevel  string `json:"log_level" toml:"log_level" mapstructure:"log_level"`
 	Port      string `json:"port" toml:"port" mapstructure:"port"`
 	CacheURL  string `json:"cache_url" toml:"cache_url" mapstructure:"port"`
