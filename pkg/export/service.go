@@ -44,12 +44,11 @@ type exporter struct {
 }
 
 const (
-	exportGroup = "export"
-	NatsSub     = "export"
-	NatsAll     = ">"
-	Channels    = "channels"
-	Messages    = "messages"
-	svcName     = "export"
+	NatsSub  = "export"
+	NatsAll  = ">"
+	Channels = "channels"
+	Messages = "messages"
+	svcName  = "export"
 )
 
 var errNoRoutesConfigured = errors.New("No routes configured")
