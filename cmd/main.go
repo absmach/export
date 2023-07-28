@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -22,12 +23,14 @@ import (
 	"github.com/mainflux/mainflux"
 	"github.com/mainflux/mainflux/logger"
 	"github.com/mainflux/mainflux/pkg/errors"
+	"github.com/mainflux/mainflux/pkg/messaging"
+	"github.com/mainflux/mainflux/pkg/messaging/brokers"
 	nats "github.com/nats-io/nats.go"
 )
 
 const (
 	svcName           = "export"
-	defNatsURL        = nats.DefaultURL
+	defBrokerURL      = nats.DefaultURL
 	defLogLevel       = "debug"
 	defPort           = "8170"
 	defMqttHost       = "tcp://localhost:1883"
@@ -47,9 +50,9 @@ const (
 	defCachePass = ""
 	defCacheDB   = "0"
 
-	envNatsURL  = "MF_NATS_URL"
-	envLogLevel = "MF_EXPORT_LOG_LEVEL"
-	envPort     = "MF_EXPORT_PORT"
+	envBrokerURL = "MF_BROKER_URL"
+	envLogLevel  = "MF_EXPORT_LOG_LEVEL"
+	envPort      = "MF_EXPORT_PORT"
 
 	envMqttHost       = "MF_EXPORT_MQTT_HOST"
 	envMqttUsername   = "MF_EXPORT_MQTT_USERNAME"
@@ -73,6 +76,7 @@ const (
 )
 
 func main() {
+	ctx := context.Background()
 	cfg, err := loadConfigs()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -83,14 +87,13 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	nc, err := nats.Connect(cfg.Server.NatsURL)
+	pubsub, err := brokers.NewPubSub(cfg.Server.BrokerURL, "", logger)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to connect to NATS: %s %s", err, cfg.Server.NatsURL))
-		os.Exit(1)
+		logger.Fatal(fmt.Sprintf("Failed to connect to Broker: %s %s", err, cfg.Server.BrokerURL))
 	}
-	defer nc.Close()
+	defer pubsub.Close()
 
-	svc, err := export.New(cfg, logger)
+	svc, err := export.New(cfg, logger, pubsub)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to create service :%s", err))
 		return
@@ -99,14 +102,14 @@ func main() {
 		logger.Error(fmt.Sprintf("Failed to start service %s", err))
 		return
 	}
-	svc.Subscribe(nc)
+	svc.Subscribe(ctx)
 
 	// Publish heartbeat
 	ticker := time.NewTicker(10000 * time.Millisecond)
 	go func() {
 		subject := fmt.Sprintf("%s.%s.%s", heartbeatSubject, svcName, service)
 		for range ticker.C {
-			if err := nc.Publish(subject, []byte{}); err != nil {
+			if err := pubsub.Publish(ctx, subject, &messaging.Message{Channel: subject}); err != nil {
 				logger.Error(fmt.Sprintf("Failed to publish heartbeat, %s", err))
 			}
 		}
@@ -149,7 +152,7 @@ func loadConfigs() (exp.Config, error) {
 		QoS := int(q)
 
 		sc := exp.Server{
-			NatsURL:   mainflux.Env(envNatsURL, defNatsURL),
+			BrokerURL: mainflux.Env(envBrokerURL, defBrokerURL),
 			LogLevel:  mainflux.Env(envLogLevel, defLogLevel),
 			Port:      mainflux.Env(envPort, defPort),
 			CachePass: mainflux.Env(envCachePass, defCachePass),
